@@ -1,13 +1,13 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: ubuntu-builder
-Source: https://launchpad.net/ubuntu-builder
+Upstream-Name: os-builder
+Source: https://github.com/hugomonizdorego/builder
 
 Files: *
-Copyright: 2026 Ubuntu Builder developers
+Copyright: 2026 hugomonizdorego <hugomonizdorego@gmail.com>
 Comment: Rewrite of Ubuntu Builder 2.5.2 (c) 2010-2014 Francesco Muriana.
 License: GPL-3+
 
-Files: legacy/2.5.2/* src/ubuntu-builder/icons/* src/ubuntu-builder/ubuntu-builder.png
+Files: legacy/2.5.2/* src/os-builder/icons/* src/os-builder/os-builder.png
 Copyright: 2010-2014 Francesco Muriana <f.muriana@hotmail.it>
 License: GPL-2+
 

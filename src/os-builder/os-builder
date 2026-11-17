@@ -1,0 +1,13 @@
+#!/bin/sh
+#
+# OS Builder launcher — starts the graphical application.
+# The application runs as the desktop user; administrator rights are asked
+# for (through pkexec) only for the steps that need them.
+#
+DIR=/usr/share/os-builder
+if [ ! -d "$DIR/os_builder" ]; then
+	# Running from a source checkout: src/os-builder/os-builder
+	DIR=$(dirname "$(readlink -f "$0")")
+fi
+export PYTHONPATH="$DIR${PYTHONPATH:+:$PYTHONPATH}"
+exec python3 -m os_builder "$@"

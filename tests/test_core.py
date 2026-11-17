@@ -5,13 +5,12 @@ import time
 from pathlib import Path
 
 import pytest
-
-from ubuntu_builder.core import customizer, iso, layers
-from ubuntu_builder.core.errors import CommandError, InsufficientDiskSpaceError, OperationCancelledError
-from ubuntu_builder.core.runner import CommandRunner, parse_squashfs_progress
-from ubuntu_builder.core.system import require_free_space
-from ubuntu_builder.models import CustomizationConfig, DesktopEnvironment, ProjectState, Workspace
-from ubuntu_builder.models.workspace import BOOT_DIR_TOKEN
+from os_builder.core import customizer, iso, layers
+from os_builder.core.errors import CommandError, InsufficientDiskSpaceError, OperationCancelledError
+from os_builder.core.runner import CommandRunner, parse_squashfs_progress
+from os_builder.core.system import require_free_space
+from os_builder.models import CustomizationConfig, ProjectState, Workspace
+from os_builder.models.workspace import BOOT_DIR_TOKEN
 
 # -- runner ---------------------------------------------------------------------
 
@@ -148,8 +147,8 @@ def test_md5sums_skip_boot_images(tmp_path):
 
 
 def test_volume_id_is_trimmed():
-    assert iso.sanitize_volume_id("  Nusantara OS 26.04 — édition spéciale, very long label ") == (
-        "Nusantara OS 26.04  dition spcia"
+    assert iso.sanitize_volume_id("  DebION GNU/Linux 26.04 — édition spéciale ") == (
+        "DebION GNU/Linux 26.04  dition s"
     )
 
 
@@ -184,9 +183,9 @@ def test_kernel_args_go_before_separator_and_are_not_duplicated():
 
 
 def test_menu_entries_are_renamed():
-    patched = customizer.rename_menu_entries(GRUB_CFG, "Nusantara OS")
-    assert 'menuentry "Try or Install Nusantara OS" {' in patched
-    assert "menuentry 'Nusantara OS (safe graphics)' {" in patched
+    patched = customizer.rename_menu_entries(GRUB_CFG, "DebION GNU/Linux")
+    assert 'menuentry "Try or Install DebION GNU/Linux" {' in patched
+    assert "menuentry 'DebION GNU/Linux (safe graphics)' {" in patched
     assert "menuentry 'UEFI Firmware Settings' {" in patched
 
 
@@ -212,10 +211,11 @@ def test_validation_accepts_reasonable_input(tmp_path):
     autoinstall = tmp_path / "autoinstall.yaml"
     autoinstall.write_text("autoinstall:\n  version: 1\n")
     config = CustomizationConfig(
-        distro_name="Nusantara OS",
+        distro_name="DebION GNU/Linux",
         grub_timeout=5,
         extra_packages=["vlc", "libreoffice-l10n-id", "g++"],
-        desktop=DesktopEnvironment.KDE,
+        desktop="kde",
+        display_manager="greetd",
         autoinstall_path=str(autoinstall),
     )
     customizer.Customizer(Workspace(tmp_path), CommandRunner()).validate(config)

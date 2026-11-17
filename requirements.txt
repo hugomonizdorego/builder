@@ -1,6 +1,7 @@
-# Runtime dependencies of Ubuntu Builder (Python 3.12+)
+# Runtime dependencies of OS Builder (Python 3.12+)
 PyQt6>=6.6            # GUI (works on GNOME/Wayland and KDE Plasma)
 requests>=2.31        # HTTP for the release scraper and ISO downloads
 beautifulsoup4>=4.12  # HTML parsing of the Ubuntu release pages
 lxml>=5.0             # fast parser backend for BeautifulSoup
 PyYAML>=6.0           # install-sources.yaml / autoinstall.yaml
+jsonschema>=4.0       # optional: check autoinstall.yaml against Subiquity's schema

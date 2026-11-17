@@ -1,0 +1,58 @@
+.TH OS-BUILDER-CLI 1 "November 2026" "os-builder 3.2.0" "User Commands"
+.SH NAME
+os-builder-cli \- remaster Ubuntu images from the command line
+.SH SYNOPSIS
+.B os-builder-cli
+.RB [ \-w
+.IR workspace ]
+.I command
+.RI [ options ]
+.SH COMMANDS
+.TP
+.B preflight
+Check the host for the required tools.
+.TP
+.BI inspect " iso"
+List the squashfs file systems of an ISO.
+.TP
+.BI extract " iso"
+Extract an ISO into the workspace
+.RB ( \-\-layer ,
+.BR \-\-replace ).
+.TP
+.B shell
+Root shell inside the image.
+.TP
+.BI customize " file.json"
+Apply a customization file.
+.TP
+.BI build " output.iso"
+Repack and build the ISO
+.RB ( \-\-volume\-id ,
+.BR \-\-compression ,
+.BR \-\-config ,
+.BR "\-\-boot\-mode hybrid" | uefi ).
+.TP
+.B boot\-info
+Show how the extracted image boots: legacy BIOS, UEFI, Secure Boot.
+.TP
+.B synaptic
+Run Synaptic inside the image on the current X display.
+.TP
+.B desktop
+Run the image's desktop session in a Xephyr window
+.RB ( \-\-resolution ).
+.TP
+.B cleanup
+Unmount leftovers of a crashed session.
+.TP
+.B delete
+Delete the extracted image.
+.PP
+All commands except
+.B preflight
+and
+.B inspect
+need root.
+.SH SEE ALSO
+.BR os-builder (1)

@@ -3,6 +3,6 @@
 %:
 	dh $@
 
-# Pure Python, installed as data under /usr/share/ubuntu-builder:
+# Pure Python, installed as data under /usr/share/os-builder:
 # nothing to configure or compile.
 override_dh_auto_configure override_dh_auto_build override_dh_auto_test override_dh_auto_install:

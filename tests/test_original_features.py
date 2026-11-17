@@ -3,10 +3,10 @@
 from pathlib import Path
 
 import pytest
-from ubuntu_builder import cli
-from ubuntu_builder.core import customizer, graphical
-from ubuntu_builder.core.runner import CommandRunner
-from ubuntu_builder.models import CustomizationConfig, Workspace
+from os_builder import cli
+from os_builder.core import customizer, graphical
+from os_builder.core.runner import CommandRunner
+from os_builder.models import CustomizationConfig, Workspace
 
 
 def make_customizer(tmp_path: Path) -> tuple[customizer.Customizer, Workspace]:
@@ -17,7 +17,7 @@ def make_customizer(tmp_path: Path) -> tuple[customizer.Customizer, Workspace]:
 
 @pytest.mark.parametrize(
     ("given", "expected"),
-    [("id_ID", "id_ID.UTF-8"), ("id_ID.UTF-8", "id_ID.UTF-8"), ("pt_BR", "pt_BR.UTF-8"), ("C.UTF-8", None)],
+    [("en_US", "en_US.UTF-8"), ("en_GB.UTF-8", "en_GB.UTF-8"), ("pt_BR", "pt_BR.UTF-8"), ("C.UTF-8", None)],
 )
 def test_normalize_locale(given, expected):
     if expected is None:
@@ -71,18 +71,18 @@ def test_welcome_message_and_description(tmp_path):
     (rootfs / "usr/lib").mkdir(parents=True)
     (rootfs / "usr/lib/os-release").write_text('NAME="Ubuntu"\nPRETTY_NAME="Ubuntu 26.04 LTS"\n')
     (rootfs / "etc/lsb-release").write_text("DISTRIB_ID=Ubuntu\nDISTRIB_DESCRIPTION=\"Ubuntu 26.04 LTS\"\n")
-    tool._apply_welcome("Selamat datang!", rootfs)
-    tool._apply_description("Nusantara OS 26.04", rootfs)
-    assert (rootfs / customizer.WELCOME_FILE).read_text() == "Selamat datang!\n"
+    tool._apply_welcome("Welcome to DebION!", rootfs)
+    tool._apply_description("DebION GNU/Linux 26.04", rootfs)
+    assert (rootfs / customizer.WELCOME_FILE).read_text() == "Welcome to DebION!\n"
     script = rootfs / "etc/update-motd.d/10-help-text"
     assert script.stat().st_mode & 0o111 and customizer.WELCOME_FILE in script.read_text()
-    assert 'PRETTY_NAME="Nusantara OS 26.04"' in (rootfs / "usr/lib/os-release").read_text()
-    assert 'DISTRIB_DESCRIPTION="Nusantara OS 26.04"' in (rootfs / "etc/lsb-release").read_text()
+    assert 'PRETTY_NAME="DebION GNU/Linux 26.04"' in (rootfs / "usr/lib/os-release").read_text()
+    assert 'DISTRIB_DESCRIPTION="DebION GNU/Linux 26.04"' in (rootfs / "etc/lsb-release").read_text()
 
 
 def test_config_json_round_trip_with_new_fields():
     config = CustomizationConfig(
-        distro_name="Nusantara OS", locale="id_ID.UTF-8", welcome_message="Halo", remove_windows_files=True,
+        distro_name="DebION GNU/Linux", locale="en_US.UTF-8", welcome_message="Hello", remove_windows_files=True,
         local_debs=["/tmp/a.deb"], commands="apt-get install -y htop\n",
     )  # fmt: skip
     assert CustomizationConfig.from_dict(config.to_dict()) == config
@@ -93,9 +93,15 @@ def test_desktop_session_detection(tmp_path):
     assert graphical.find_desktop_session(tmp_path) is None
     (tmp_path / "usr/bin").mkdir(parents=True)
     (tmp_path / "usr/bin/openbox-session").write_text("")
-    assert graphical.find_desktop_session(tmp_path) == ("openbox-session",)
+    assert graphical.find_desktop_session(tmp_path) == (("openbox-session",), {})
     (tmp_path / "usr/bin/xfce4-session").write_text("")
-    assert graphical.find_desktop_session(tmp_path) == ("xfce4-session",)  # preferred over openbox
+    assert graphical.find_desktop_session(tmp_path) == (("xfce4-session",), {})  # preferred over openbox
+    (tmp_path / "usr/bin/sway").write_text("")
+    command, env = graphical.find_desktop_session(tmp_path)
+    assert command[0] == "xfce4-session"  # full desktops first
+    (tmp_path / "usr/bin/xfce4-session").unlink()
+    command, env = graphical.find_desktop_session(tmp_path)
+    assert command[0] == "sway" and env["WLR_BACKENDS"] == "x11"  # nested through X11
 
 
 def test_only_local_displays_are_accepted():

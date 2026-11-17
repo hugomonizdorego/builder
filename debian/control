@@ -1,13 +1,13 @@
-Source: ubuntu-builder
+Source: os-builder
 Section: admin
 Priority: optional
-Maintainer: Ubuntu Builder developers <maintainer@example.org>
-Homepage: https://launchpad.net/ubuntu-builder
+Maintainer: hugomonizdorego <hugomonizdorego@gmail.com>
+Homepage: https://github.com/hugomonizdorego/builder
 Build-Depends: debhelper-compat (= 13)
 Standards-Version: 4.7.0
 Rules-Requires-Root: no
 
-Package: ubuntu-builder
+Package: os-builder
 Architecture: all
 Depends: python3 (>= 3.12),
          python3-pyqt6,
@@ -19,15 +19,19 @@ Depends: python3 (>= 3.12),
          xorriso,
          pkexec | policykit-1,
          ${misc:Depends}
-Recommends: mtools,
+Recommends: openssl,
+            python3-jsonschema,
+            mtools,
             grub-pc-bin,
             grub-efi-amd64-bin,
             qemu-system-x86,
             ovmf,
             xserver-xephyr
 Suggests: gnome-disk-utility | usb-creator-gtk, brasero | k3b | xfburn
+Conflicts: ubuntu-builder
+Replaces: ubuntu-builder
 Description: build your own Ubuntu based distribution
- Ubuntu Builder is an application which allows you to completely build an
+ OS Builder is an application which allows you to completely build an
  Ubuntu based distribution: pick an official release (fetched live from
  ubuntu.com) or a local ISO, customize it — packages, desktop environment,
  boot menu and splash, wallpaper, installer, your own commands — through a

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Install the host packages Ubuntu Builder needs (Ubuntu 22.04 or newer,
+# Install the host packages OS Builder needs (Ubuntu 22.04 or newer,
 # Debian and derivatives).
 #
 #   ./install_host_deps.sh              required + recommended packages
@@ -27,6 +27,8 @@ RECOMMENDED=(
     libxkbcommon0
     libxcb-cursor0
     xserver-xephyr   # "Desktop": the image's session in a window
+    openssl          # hashes the installer password
+    python3-jsonschema  # checks autoinstall.yaml against Subiquity's schema
 )
 QEMU=(
     qemu-system-x86
@@ -78,5 +80,5 @@ Host packages installed. Next, the Python side:
 
     python3 -m venv .venv
     .venv/bin/pip install -r requirements.txt
-    .venv/bin/python -m ubuntu_builder
+    PATH="$PWD/.venv/bin:$PATH" src/os-builder/os-builder
 EOF
