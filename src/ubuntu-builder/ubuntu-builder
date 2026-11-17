@@ -1,9 +1,13 @@
-#!/bin/bash
-
-if [ -e /usr/bin/gksudo ]; then
-	gksudo /usr/bin/ubuntu-builder.gambas
-elif [ -e /usr/bin/kdesudo ]; then
-	kdesudo /usr/bin/ubuntu-builder.gambas
+#!/bin/sh
+#
+# Ubuntu Builder launcher — starts the graphical application.
+# The application runs as the desktop user; administrator rights are asked
+# for (through pkexec) only for the steps that need them.
+#
+DIR=/usr/share/ubuntu-builder
+if [ ! -d "$DIR/ubuntu_builder" ]; then
+	# Running from a source checkout: src/ubuntu-builder/ubuntu-builder
+	DIR=$(dirname "$(readlink -f "$0")")
 fi
-
-exit 0
+export PYTHONPATH="$DIR${PYTHONPATH:+:$PYTHONPATH}"
+exec python3 -m ubuntu_builder "$@"

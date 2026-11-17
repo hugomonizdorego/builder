@@ -1,14 +1,35 @@
 Source: ubuntu-builder
 Section: admin
 Priority: optional
-Maintainer: Francesco Muriana <f.muriana@hotmail.it>
-Homepage: http://code.google.com/p/ubuntu-builder
-Build-Depends: debhelper (>= 9.20.0), gambas3-dev, gambas3-gb-gui, gambas3-gb-form, gambas3-gb-form-stock, gambas3-gb-image
-Standards-Version: 3.9.2
+Maintainer: Ubuntu Builder developers <maintainer@example.org>
+Homepage: https://launchpad.net/ubuntu-builder
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.7.0
+Rules-Requires-Root: no
 
 Package: ubuntu-builder
 Architecture: all
-Depends: gambas3-runtime, gambas3-gb-gtk, gambas3-gb-image, gambas3-gb-form, gambas3-gb-form-stock, qemu, squashfs-tools, xserver-xephyr, rsync, menu, genisoimage, lzma, ${misc:Depends}
-Description:Build your own Ubuntu based distribution.
- Ubuntu Builder is an application which allows you to completely
-  build an Ubuntu based distribution.
+Depends: python3 (>= 3.12),
+         python3-pyqt6,
+         python3-requests,
+         python3-bs4,
+         python3-lxml,
+         python3-yaml,
+         squashfs-tools,
+         xorriso,
+         pkexec | policykit-1,
+         ${misc:Depends}
+Recommends: mtools,
+            grub-pc-bin,
+            grub-efi-amd64-bin,
+            qemu-system-x86,
+            ovmf,
+            xserver-xephyr
+Suggests: gnome-disk-utility | usb-creator-gtk, brasero | k3b | xfburn
+Description: build your own Ubuntu based distribution
+ Ubuntu Builder is an application which allows you to completely build an
+ Ubuntu based distribution: pick an official release (fetched live from
+ ubuntu.com) or a local ISO, customize it — packages, desktop environment,
+ boot menu and splash, wallpaper, installer, your own commands — through a
+ chroot console, Synaptic or the nested desktop, and build a hybrid ISO
+ that boots on legacy BIOS and UEFI with Secure Boot.

@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ubuntu-builder"
+description = "Build your own Ubuntu based distribution — a modern rewrite of Ubuntu Builder"
+readme = "README.md"
+license = { text = "GPL-3.0-or-later" }
+requires-python = ">=3.12"
+dynamic = ["version"]
+dependencies = [
+    "PyQt6>=6.6",
+    "requests>=2.31",
+    "beautifulsoup4>=4.12",
+    "lxml>=5.0",
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.5"]
+
+[project.scripts]
+ubuntu-builder-cli = "ubuntu_builder.cli:main"
+
+[project.gui-scripts]
+ubuntu-builder = "ubuntu_builder.app:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "ubuntu_builder.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src/ubuntu-builder"]
+include = ["ubuntu_builder*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src/ubuntu-builder"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["SIM105", "SIM108"]  # explicit try/except and if/else read better here
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E501"]  # HTML fixtures mirror the upstream markup
