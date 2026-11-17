@@ -1,10 +1,10 @@
-"""Page 3 — declarative customizations (boot, look, software, installer)."""
+"""Wizard form — software, boot, appearance, installer and commands."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtGui import QFontDatabase
 from PyQt6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QPlainTextEdit,
     QPushButton,
     QScrollArea,
     QSpinBox,
@@ -49,15 +50,11 @@ class FilePicker(QWidget):
 
 
 class CustomizePage(QWidget):
-    """Form producing a :class:`CustomizationConfig`."""
-
-    apply_requested = pyqtSignal(object)  # CustomizationConfig
+    """Form of the Wizard producing a :class:`CustomizationConfig`."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         # -- identity & boot --------------------------------------------------
-        self.name_edit = QLineEdit()
-        self.name_edit.setPlaceholderText("e.g. Nusantara OS (leave empty to keep Ubuntu)")
         self.timeout_check = QCheckBox("Set boot menu timeout:")
         self.timeout_spin = QSpinBox()
         self.timeout_spin.setRange(-1, 600)
@@ -74,9 +71,8 @@ class CustomizePage(QWidget):
         self.plymouth_combo = QComboBox()
         self.plymouth_combo.setEditable(True)
         self.plymouth_combo.lineEdit().setPlaceholderText("theme name, e.g. spinner (must be installed in the image)")
-        boot_box = QGroupBox("Identity && boot")
+        boot_box = QGroupBox("Boot")
         boot_form = QFormLayout(boot_box)
-        boot_form.addRow("Distribution name:", self.name_edit)
         boot_form.addRow("GRUB:", timeout_row)
         boot_form.addRow("Extra kernel arguments:", self.kernel_args_edit)
         boot_form.addRow("Boot splash (Plymouth):", self.plymouth_combo)
@@ -121,26 +117,32 @@ class CustomizePage(QWidget):
         installer_form.addRow("Subiquity autoinstall.yaml:", self.autoinstall_picker)
         installer_form.addRow("Calamares:", calamares_row)
 
-        self.apply_button = QPushButton("Apply customizations")
+        self.commands_edit = QPlainTextEdit()
+        self.commands_edit.setPlaceholderText(
+            "# Shell commands run as root inside the image, after everything else\n"
+            "# e.g.\nadd-apt-repository -y universe\napt-get install -y htop"
+        )
+        self.commands_edit.setFont(QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont))
+        self.commands_edit.setFixedHeight(110)
+        commands_box = QGroupBox("Commands")
+        commands_layout = QVBoxLayout(commands_box)
+        commands_layout.addWidget(self.commands_edit)
+
         note = QLabel("Package changes run apt inside the image and need an internet connection.")
         note.setWordWrap(True)
-        footer = QHBoxLayout()
-        footer.addWidget(note, 1)
-        footer.addWidget(self.apply_button)
 
         content = QWidget()
         content_layout = QVBoxLayout(content)
-        for box in (boot_box, look_box, software_box, installer_box):
+        for box in (software_box, boot_box, look_box, installer_box, commands_box):
             content_layout.addWidget(box)
         content_layout.addStretch(1)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setWidget(content)
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(scroll, 1)
-        layout.addLayout(footer)
-
-        self.apply_button.clicked.connect(lambda: self.apply_requested.emit(self.config()))
+        layout.addWidget(note)
 
     def set_plymouth_themes(self, themes: list[str]) -> None:
         """Offer the themes found in the extracted image."""
@@ -152,7 +154,6 @@ class CustomizePage(QWidget):
     def config(self) -> CustomizationConfig:
         """Collect the form into a model object."""
         return CustomizationConfig(
-            distro_name=self.name_edit.text().strip(),
             plymouth_theme=self.plymouth_combo.currentText().strip(),
             grub_timeout=self.timeout_spin.value() if self.timeout_check.isChecked() else None,
             grub_extra_kernel_args=self.kernel_args_edit.text().strip(),
@@ -165,4 +166,5 @@ class CustomizePage(QWidget):
             autoinstall_path=self.autoinstall_picker.path(),
             install_calamares=self.calamares_check.isChecked(),
             calamares_packages=self.calamares_edit.text().split(),
+            commands=self.commands_edit.toPlainText() if self.commands_edit.toPlainText().strip() else "",
         )

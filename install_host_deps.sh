@@ -26,6 +26,7 @@ RECOMMENDED=(
     libegl1          # Qt runtime libraries missing on minimal installs
     libxkbcommon0
     libxcb-cursor0
+    xserver-xephyr   # "Desktop": the image's session in a window
 )
 QEMU=(
     qemu-system-x86

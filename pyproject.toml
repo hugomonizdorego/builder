@@ -30,10 +30,12 @@ ubuntu-builder = "ubuntu_builder.app:main"
 version = { attr = "ubuntu_builder.__version__" }
 
 [tool.setuptools.packages.find]
+where = ["src/ubuntu-builder"]
 include = ["ubuntu_builder*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["src/ubuntu-builder"]
 
 [tool.ruff]
 line-length = 120

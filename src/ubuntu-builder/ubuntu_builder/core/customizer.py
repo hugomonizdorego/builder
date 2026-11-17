@@ -26,6 +26,32 @@ _UBUNTU_WORD = re.compile(r"\b\w*[Uu]buntu\b(?:[ -](?:Server|Studio|MATE|Budgie|
 _MENU_TITLE = re.compile(r"^(\s*(?:menuentry|submenu)\s+)(['\"])(.*?)\2", re.MULTILINE)
 _LINUX_LINE = re.compile(r"^(\s*linux(?:efi)?\s+\S+)(.*)$", re.MULTILINE)
 _IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".svg"}
+_LOCALE = re.compile(r"^[a-z]{2,3}(_[A-Z]{2})?(@[a-z]+)?(\.UTF-8)?$")
+_FREE_TEXT_FORBIDDEN = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
+
+#: Files of the Windows autorun / Wubi era that the original Ubuntu Builder
+#: offered to strip from the ISO. Modern images rarely carry them.
+WINDOWS_FILES = (
+    "autorun.inf", "start.bmp", "start.exe", "start.ini", "ubuntu.ico", "kubuntu.ico", "xubuntu.ico",
+    "lubuntu.ico", "wubi-cdboot.exe", "wubi.exe", "umenu.exe", "usb-creator.exe", "mint4win.exe",
+)  # fmt: skip
+WINDOWS_DIRS = ("bin", "disctree", "pics", "programs")
+WELCOME_FILE = f"etc/{APP_ID}/welcome"
+_WELCOME_SCRIPT = f"""#!/bin/sh
+# Installed by {APP_ID}: replaces Ubuntu's help text with the distribution's welcome message.
+[ -r /{WELCOME_FILE} ] && {{ echo; cat /{WELCOME_FILE}; echo; }}
+exit 0
+"""
+
+
+def normalize_locale(locale: str) -> str:
+    """``id_ID`` → ``id_ID.UTF-8``; raises for anything that is not a locale."""
+    locale = locale.strip()
+    if not _LOCALE.match(locale):
+        raise CustomizationError(f"Not a valid locale: {locale!r} (expected e.g. id_ID.UTF-8)")
+    if "_" in locale and not locale.endswith(".UTF-8"):
+        locale += ".UTF-8"
+    return locale
 OVERRIDE_FILE = f"usr/share/glib-2.0/schemas/90_{APP_ID}.gschema.override"
 
 
@@ -118,15 +144,40 @@ class Customizer:
             if not isinstance(document, dict):
                 raise CustomizationError("The autoinstall file must be a YAML mapping.")
         validate_packages(config.extra_packages + config.remove_packages)
+        if config.description and (_FREE_TEXT_FORBIDDEN.search(config.description) or '"' in config.description
+                                   or "\n" in config.description):
+            raise CustomizationError("The description must be a single line without double quotes.")
+        if _FREE_TEXT_FORBIDDEN.search(config.welcome_message):
+            raise CustomizationError("The welcome message contains control characters.")
+        if config.locale:
+            normalize_locale(config.locale)
+        for deb in config.local_debs:
+            if not deb.endswith(".deb") or not Path(deb).is_file():
+                raise CustomizationError(f"Not a .deb file: {deb}")
         if config.install_calamares:
             validate_packages(config.calamares_packages)
 
     def apply(self, config: CustomizationConfig, session: ChrootSession) -> None:
-        """Apply ``config``. ``session`` must already be mounted."""
+        """Apply ``config``. ``session`` must already be mounted.
+
+        The order follows the original tool: identity first, software next,
+        the user's own commands last so they can adjust everything else.
+        """
         self.validate(config)
+        if config.locale:
+            # casper reads locale= at boot: the live session speaks it too.
+            locale = normalize_locale(config.locale)
+            extra = f"{config.grub_extra_kernel_args} locale={locale}".strip()
+            config = CustomizationConfig.from_dict({**config.to_dict(), "grub_extra_kernel_args": extra})
         self._apply_boot_menu(config)
         if config.distro_name:
             self._apply_branding(config.distro_name, session.rootfs)
+        if config.description:
+            self._apply_description(config.description, session.rootfs)
+        if config.welcome_message:
+            self._apply_welcome(config.welcome_message, session.rootfs)
+        if config.remove_windows_files:
+            self._remove_windows_files()
         if config.autoinstall_path:
             shutil.copyfile(config.autoinstall_path, self._ws.iso_dir / "autoinstall.yaml")
             self._runner.log("Installed autoinstall.yaml at the root of the ISO (read by Subiquity).")
@@ -135,6 +186,10 @@ class Customizer:
             self._apply_appearance(config, session)
         if config.plymouth_theme:
             self._apply_plymouth(config.plymouth_theme, session)
+        if config.locale:
+            self._apply_locale(normalize_locale(config.locale), session)
+        if config.commands.strip():
+            self._run_commands(config.commands, session)
 
     # -- individual steps --------------------------------------------------
 
@@ -188,16 +243,80 @@ class Customizer:
             disk_info.write_text(_UBUNTU_WORD.sub(name, info, count=1), encoding="utf-8")
         self._runner.log(f"Distribution renamed to {name!r}.")
 
+    def _apply_description(self, description: str, rootfs: Path) -> None:
+        for path, key in (("usr/lib/os-release", "PRETTY_NAME"), ("etc/lsb-release", "DISTRIB_DESCRIPTION")):
+            target = rootfs / path
+            if target.is_file() and not target.is_symlink():
+                target.write_text(_set_key(target.read_text(encoding="utf-8"), key, description), encoding="utf-8")
+        self._runner.log(f"Description set to {description!r}.")
+
+    def _apply_welcome(self, message: str, rootfs: Path) -> None:
+        """Console welcome text, as the original wrote into motd."""
+        welcome = rootfs / WELCOME_FILE
+        welcome.parent.mkdir(parents=True, exist_ok=True)
+        welcome.write_text(message.rstrip("\n") + "\n", encoding="utf-8")
+        motd_dir = rootfs / "etc/update-motd.d"
+        if motd_dir.is_dir():
+            script = motd_dir / "10-help-text"
+            script.write_text(_WELCOME_SCRIPT, encoding="utf-8")
+            script.chmod(0o755)
+        else:
+            (rootfs / "etc/motd").write_text(message.rstrip("\n") + "\n\n", encoding="utf-8")
+        self._runner.log("Welcome message installed.")
+
+    def _remove_windows_files(self) -> None:
+        removed = []
+        for name in WINDOWS_FILES:
+            path = self._ws.iso_dir / name
+            if path.is_file():
+                path.unlink()
+                removed.append(name)
+        for name in WINDOWS_DIRS:
+            path = self._ws.iso_dir / name
+            if path.is_dir() and not path.is_symlink():
+                shutil.rmtree(path)
+                removed.append(name + "/")
+        self._runner.log("Windows files removed: " + (", ".join(removed) if removed else "none present"))
+
+    def _apply_locale(self, locale: str, session: ChrootSession) -> None:
+        if not session.has_command("locale-gen"):
+            session.run(["apt-get", "install", "-y", "locales"])
+        session.run(["locale-gen", locale])
+        session.run(["update-locale", f"LANG={locale}"])
+        self._runner.log(f"Default locale set to {locale}.")
+
+    def _run_commands(self, commands: str, session: ChrootSession) -> None:
+        """Run the user's script (the original AUTOCOMMANDS) inside the image."""
+        script = session.rootfs / "tmp" / f"{APP_ID}-commands.sh"
+        script.write_text("set -e\n" + commands.replace("\r\n", "\n") + "\n", encoding="utf-8")
+        try:
+            session.run(["/bin/bash", f"/tmp/{script.name}"])
+        finally:
+            script.unlink(missing_ok=True)
+
     def _apply_packages(self, config: CustomizationConfig, session: ChrootSession) -> None:
         install = [*config.desktop.packages, *config.extra_packages]
         if config.install_calamares:
             install += config.calamares_packages
-        if not install and not config.remove_packages:
+        if not install and not config.remove_packages and not config.local_debs:
             return
         apt = ["apt-get", "-y", "-o", "Dpkg::Options::=--force-confold"]
-        if install:
+        if install or config.local_debs:
             session.run(["apt-get", "update"])
+        if install:
             session.run([*apt, "install", "--", *install])
+        if config.local_debs:
+            staging = session.rootfs / "tmp" / f"{APP_ID}-debs"
+            staging.mkdir(parents=True, exist_ok=True)
+            try:
+                inside = []
+                for deb in config.local_debs:
+                    shutil.copyfile(deb, staging / Path(deb).name)
+                    inside.append(f"/tmp/{staging.name}/{Path(deb).name}")
+                # apt resolves the dependencies of local files ("apt install ./x.deb").
+                session.run([*apt, "install", "--", *inside])
+            finally:
+                shutil.rmtree(staging, ignore_errors=True)
         if config.remove_packages:
             session.run([*apt, "purge", "--", *config.remove_packages])
             session.run([*apt, "autoremove", "--purge"])

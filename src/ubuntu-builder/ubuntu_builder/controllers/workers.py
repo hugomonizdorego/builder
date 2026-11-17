@@ -28,6 +28,7 @@ from typing import Any
 from PyQt6.QtCore import QThread, pyqtSignal
 
 import ubuntu_builder
+from ubuntu_builder.cli import PASSED_ENV
 from ubuntu_builder.core.errors import BuilderError, OperationCancelledError
 
 
@@ -77,23 +78,30 @@ class TaskWorker(BaseWorker):
             self.succeeded.emit(result)
 
 
+#: Installed by the Debian package; a polkit policy names it, so the password
+#: dialog says what is being authorised.
+INSTALLED_HELPER = Path("/usr/libexec/ubuntu-builder/ubuntu-builder-helper")
+
+
 def helper_command(
     workspace: Path, arguments: list[str], *, events: bool = True, extra_env: dict[str, str] | None = None
 ) -> list[str]:
     """Command line running the CLI helper with root rights.
 
-    pkexec resets the environment and the working directory, so the module
-    search path (and a proxy, if configured) is handed over explicitly.
+    pkexec clears the environment, so the variables the helper needs travel
+    as ``--setenv`` options (the helper accepts a fixed list of names).
     """
-    package_parent = str(Path(ubuntu_builder.__file__).resolve().parent.parent)
-    env = {"PYTHONPATH": package_parent, "PYTHONUNBUFFERED": "1", **(extra_env or {})}
-    for name in ("http_proxy", "https_proxy", "no_proxy"):
-        if os.environ.get(name):
-            env[name] = os.environ[name]
-    command = ["env", *(f"{key}={value}" for key, value in env.items())]
-    command += [sys.executable, "-m", "ubuntu_builder.cli"]
-    command += ["--events"] if events else []
-    command += ["-w", str(workspace), *arguments]
+    env = {name: os.environ[name] for name in PASSED_ENV if os.environ.get(name)}
+    env.update(extra_env or {})
+    options = [f"--setenv={key}={value}" for key, value in env.items()]
+    options += ["--events"] if events else []
+    options += ["-w", str(workspace), *arguments]
+    if INSTALLED_HELPER.exists():
+        command = [str(INSTALLED_HELPER), *options]
+    else:  # running from a source checkout
+        package_parent = str(Path(ubuntu_builder.__file__).resolve().parent.parent)
+        command = ["env", f"PYTHONPATH={package_parent}", "PYTHONUNBUFFERED=1",
+                   sys.executable, "-m", "ubuntu_builder.cli", *options]  # fmt: skip
     return command if os.geteuid() == 0 else ["pkexec", *command]
 
 

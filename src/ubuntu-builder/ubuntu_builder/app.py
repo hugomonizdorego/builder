@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import QApplication
 
 from ubuntu_builder import APP_ID, APP_NAME, __version__
 from ubuntu_builder.controllers.main_controller import MainController
+from ubuntu_builder.views import resources
 from ubuntu_builder.views.main_window import MainWindow
 
 
@@ -17,6 +18,7 @@ def main(argv: list[str] | None = None) -> int:
     app.setApplicationName(APP_NAME)
     app.setApplicationVersion(__version__)
     app.setDesktopFileName(APP_ID)  # lets Wayland compositors match the .desktop file
+    app.setWindowIcon(resources.app_icon())
     window = MainWindow()
     controller = MainController(window)
     window.show()

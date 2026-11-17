@@ -153,6 +153,11 @@ class CommandRunner:
                 for line in lines:
                     emit(line)
             emit(pending)
+        except BaseException:
+            # Interrupted (signal, cancellation, error in a callback): the
+            # command must not outlive us.
+            self._terminate(process)
+            raise
         finally:
             selector.close()
             if master_fd is not None:

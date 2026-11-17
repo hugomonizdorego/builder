@@ -51,6 +51,7 @@ HOST_TOOLS: tuple[HostTool, ...] = (
         "Rebuild the UEFI boot image (fallback only)",
         required=False,
     ),
+    HostTool("Xephyr", "Xephyr", "xserver-xephyr", "Run the image's desktop in a window", required=False),
     HostTool("qemu", "qemu-system-x86_64", "qemu-system-x86", "Test-boot the finished ISO", required=False),
     HostTool("qemu-img", "qemu-img", "qemu-utils", "Create a scratch disk for the test VM", required=False),
     HostTool(

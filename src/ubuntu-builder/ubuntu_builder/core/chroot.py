@@ -20,6 +20,8 @@ from __future__ import annotations
 import fcntl
 import os
 import shlex
+import signal
+import time
 from collections.abc import Sequence
 from pathlib import Path
 from types import TracebackType
@@ -56,6 +58,41 @@ def mount_points_under(root: Path) -> list[Path]:
                 found.append(Path(point))
     found.reverse()  # later mounts sit on top of earlier ones
     return sorted(found, key=lambda p: len(p.parts), reverse=True)
+
+
+def processes_in(root: Path) -> list[int]:
+    """PIDs of processes whose root directory is ``root`` (i.e. inside the chroot)."""
+    target = str(root.resolve())
+    found = []
+    for proc in Path("/proc").iterdir():
+        if proc.name.isdigit():
+            try:
+                if os.readlink(proc / "root") == target:
+                    found.append(int(proc.name))
+            except OSError:
+                continue
+    return found
+
+
+def stop_processes_in(runner: CommandRunner, root: Path) -> None:
+    """SIGTERM, then SIGKILL, whatever still runs inside the image.
+
+    A daemon started by a package script or a program left open would keep
+    the mounts busy.
+    """
+    for sig, grace in ((signal.SIGTERM, 3.0), (signal.SIGKILL, 2.0)):
+        pids = processes_in(root)
+        if not pids:
+            return
+        runner.log(f"Stopping {len(pids)} process(es) still running inside the image.")
+        for pid in pids:
+            try:
+                os.kill(pid, sig)
+            except ProcessLookupError:
+                pass
+        deadline = time.monotonic() + grace
+        while time.monotonic() < deadline and processes_in(root):
+            time.sleep(0.1)
 
 
 def unmount_tree(runner: CommandRunner, root: Path) -> None:
@@ -222,6 +259,8 @@ class ChrootSession:
             for path in self._created:
                 path.unlink(missing_ok=True)
             self._created.clear()
+            if self._ws.rootfs_dir.is_dir():
+                stop_processes_in(self._runner, self._ws.rootfs_dir)
             unmount_tree(self._runner, self._ws.root)
             for path in self._created_dirs:
                 if path.is_dir() and not any(path.iterdir()):
@@ -234,7 +273,9 @@ class ChrootSession:
 
     # -- running commands --------------------------------------------------
 
-    def argv(self, command: Sequence[str], *, interactive: bool = False) -> list[str]:
+    def argv(
+        self, command: Sequence[str], *, interactive: bool = False, extra_env: dict[str, str] | None = None
+    ) -> list[str]:
         """Full host command line that runs ``command`` inside the image."""
         env = dict(CHROOT_ENV)
         for name in ("http_proxy", "https_proxy", "no_proxy"):  # honour a host proxy
@@ -244,6 +285,7 @@ class ChrootSession:
             env.pop("DEBIAN_FRONTEND")
             env["TERM"] = os.environ.get("TERM", "dumb")
             env["debian_chroot"] = "ubuntu-builder"  # shown in bash's prompt
+        env.update(extra_env or {})
         assignments = [f"{key}={value}" for key, value in env.items()]
         return ["chroot", str(self._ws.rootfs_dir), "/usr/bin/env", "-i", *assignments, *command]
 

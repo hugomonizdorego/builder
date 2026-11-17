@@ -1,3 +1,25 @@
+ubuntu-builder (3.0.0) resolute; urgency=medium
+
+  * Complete rewrite in Python 3.12+ and Qt 6 (PyQt6), MVC architecture.
+  * Same workflow and window as 2.x: Select ISO, Wizard, Build, QEMU,
+    Export, Remove, Settings; Console, Synaptic, Desktop, Install .deb.
+  * Releases, support status, flavors and ISO images are fetched live from
+    ubuntu.com instead of being hard coded (sources/precise … saucy).
+  * Download official images with resume and SHA-256 verification.
+  * Support for layered squashfs images (Ubuntu 23.04 and later).
+  * Hybrid ISO for legacy BIOS and UEFI with Secure Boot, built with
+    xorriso from the source image's boot records (replaces genisoimage).
+  * Long operations run in background threads with progress and cancel;
+    every mount is released on errors and cancellation.
+  * Administrator rights through pkexec / polkit instead of gksudo.
+  * Embedded chroot console; Desktop runs the image's session in Xephyr.
+  * New options: description, locale, welcome message, boot menu,
+    Plymouth, wallpaper and themes, Subiquity autoinstall, Calamares,
+    commands run inside the image.
+  * Pre-flight check of the host tools at start up.
+
+ -- Ubuntu Builder developers <maintainer@example.org>  Tue, 17 Nov 2026 12:00:00 +0700
+
 ubuntu-builder (2.5.2-gb3-1) saucy; urgency=low
 
   * New way to check internet connection.

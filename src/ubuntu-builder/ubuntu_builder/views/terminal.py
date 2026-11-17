@@ -273,7 +273,7 @@ class TerminalPage(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.terminal = TerminalWidget()
-        self.open_button = QPushButton("Open chroot session")
+        self.open_button = QPushButton("Open session")
         self.close_button = QPushButton("Close session")
         self.external_button = QPushButton("Open in system terminal…")
         self.external_button.setToolTip("For full screen programs such as nano or dialog based package prompts.")

@@ -1,0 +1,14 @@
+Source: ubuntu-builder
+Section: admin
+Priority: optional
+Maintainer: Francesco Muriana <f.muriana@hotmail.it>
+Homepage: http://code.google.com/p/ubuntu-builder
+Build-Depends: debhelper (>= 9.20.0), gambas3-dev, gambas3-gb-gui, gambas3-gb-form, gambas3-gb-form-stock, gambas3-gb-image
+Standards-Version: 3.9.2
+
+Package: ubuntu-builder
+Architecture: all
+Depends: gambas3-runtime, gambas3-gb-gtk, gambas3-gb-image, gambas3-gb-form, gambas3-gb-form-stock, qemu, squashfs-tools, xserver-xephyr, rsync, menu, genisoimage, lzma, ${misc:Depends}
+Description:Build your own Ubuntu based distribution.
+ Ubuntu Builder is an application which allows you to completely
+  build an Ubuntu based distribution.

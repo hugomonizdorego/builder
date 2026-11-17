@@ -22,6 +22,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from ubuntu_builder import APP_NAME, __version__
+from ubuntu_builder.core import graphical
 from ubuntu_builder.core.backend import COMPRESSIONS, BuilderBackend
 from ubuntu_builder.core.errors import BuilderError, OperationCancelledError
 from ubuntu_builder.core.preflight import check_host_tools, install_command, missing_required
@@ -125,15 +126,37 @@ def cmd_shell(backend: BuilderBackend, _args: argparse.Namespace, _reporter: Rep
     return EXIT_OK if code in (0, 130) else code
 
 
+def _load_config(path: Path) -> CustomizationConfig:
+    try:
+        return CustomizationConfig.from_dict(json.loads(path.read_text(encoding="utf-8")))
+    except (ValueError, TypeError, KeyError) as exc:
+        raise BuilderError(f"Invalid customization file {path}: {exc}") from exc
+
+
 def cmd_customize(backend: BuilderBackend, args: argparse.Namespace, _reporter: Reporter) -> int:
-    config = CustomizationConfig.from_dict(json.loads(args.config.read_text(encoding="utf-8")))
-    backend.apply_customizations(config)
+    backend.apply_customizations(_load_config(args.config))
     return EXIT_OK
 
 
 def cmd_build(backend: BuilderBackend, args: argparse.Namespace, reporter: Reporter) -> int:
+    if args.config is not None:  # one privileged run: apply, then build
+        config = _load_config(args.config)
+        if not config.is_empty():
+            backend.apply_customizations(config)
     output = backend.build_iso(args.output, args.volume_id, args.compression)
     reporter.result(output=str(output))
+    return EXIT_OK
+
+
+def cmd_synaptic(backend: BuilderBackend, _args: argparse.Namespace, _reporter: Reporter) -> int:
+    with backend.session() as session:
+        graphical.run_synaptic(session, backend.runner)
+    return EXIT_OK
+
+
+def cmd_desktop(backend: BuilderBackend, args: argparse.Namespace, _reporter: Reporter) -> int:
+    with backend.session() as session:
+        graphical.run_desktop(session, backend.runner, args.resolution)
     return EXIT_OK
 
 
@@ -156,6 +179,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="ubuntu-builder-cli", description=f"{APP_NAME} command line interface")
     parser.add_argument("--version", action="version", version=__version__)
     parser.add_argument("--events", action="store_true", help="emit JSON events (used by the GUI)")
+    parser.add_argument(
+        "--setenv", action="append", default=[], metavar="NAME=VALUE",
+        help=f"set an environment variable ({', '.join(PASSED_ENV)}); used through pkexec",
+    )  # fmt: skip
     parser.add_argument(
         "-w", "--workspace", type=Path, default=Path.home() / "ubuntu-builder-workspace",
         help="project directory (default: %(default)s)",
@@ -180,9 +207,26 @@ def build_parser() -> argparse.ArgumentParser:
     build.add_argument("output", type=Path)
     build.add_argument("--volume-id", help="ISO volume label (max. 32 characters)")
     build.add_argument("--compression", choices=COMPRESSIONS, help="squashfs compression (default: as source)")
+    build.add_argument("--config", type=Path, help="customization file to apply before building")
+    add("synaptic", cmd_synaptic, "run Synaptic inside the image on this display (root)")
+    desktop = add("desktop", cmd_desktop, "run the image's desktop in a Xephyr window (root)")
+    desktop.add_argument("--resolution", default="1280x800")
     add("cleanup", cmd_cleanup, "unmount leftovers of a crashed session (root)")
     add("delete", cmd_delete, "delete the extracted image (root)")
     return parser
+
+
+#: Variables the GUI may hand to the privileged helper (pkexec clears the
+#: environment): proxies, the X display for Synaptic/Desktop, the terminal.
+PASSED_ENV = ("http_proxy", "https_proxy", "no_proxy", "DISPLAY", "XAUTHORITY", "TERM")
+
+
+def _apply_setenv(assignments: list[str]) -> None:
+    for assignment in assignments:
+        name, sep, value = assignment.partition("=")
+        if not sep or name not in PASSED_ENV:
+            raise SystemExit(f"--setenv: {name!r} is not allowed")
+        os.environ[name] = value
 
 
 def _raise_cancelled(signum: int, _frame: object) -> None:
@@ -191,6 +235,7 @@ def _raise_cancelled(signum: int, _frame: object) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    _apply_setenv(args.setenv)
     # A closed terminal or a plain `kill` must unwind the context managers
     # (and thereby unmount the image) instead of killing us on the spot.
     for signum in (signal.SIGTERM, signal.SIGHUP):
