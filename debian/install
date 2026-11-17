@@ -1,0 +1,11 @@
+src/ubuntu-builder/ubuntu-builder.gambas usr/bin
+src/ubuntu-builder/ubuntu-builder usr/bin
+src/ubuntu-builder/ubuntu-builder.png usr/share/pixmaps
+src/ubuntu-builder/.src/*.class usr/share/ubuntu-builder
+src/ubuntu-builder/.src/*.form usr/share/ubuntu-builder
+src/ubuntu-builder/extras usr/share/ubuntu-builder
+src/ubuntu-builder/sources usr/share/ubuntu-builder
+src/ubuntu-builder/icons usr/share/ubuntu-builder
+debian/changelog usr/share/doc/ubuntu-builder
+debian/copyright usr/share/doc/ubuntu-builder
+debian/ubuntu-builder.desktop usr/share/applications
