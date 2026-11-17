@@ -27,6 +27,8 @@ RECOMMENDED=(
     libxkbcommon0
     libxcb-cursor0
     xserver-xephyr   # "Desktop": the image's session in a window
+    openssl          # hashes the installer password
+    python3-jsonschema  # checks autoinstall.yaml against Subiquity's schema
 )
 QEMU=(
     qemu-system-x86

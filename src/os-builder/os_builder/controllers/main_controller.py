@@ -37,6 +37,7 @@ from os_builder.core.preflight import ToolStatus, check_host_tools, missing_requ
 from os_builder.core.runner import CommandRunner
 from os_builder.core.scraper import UbuntuScraper
 from os_builder.models import DESKTOPS_BY_ID, CustomizationConfig, IsoImage, ProjectState, Workspace
+from os_builder.models.installer import InstallerSettings
 from os_builder.views.dialogs import BuildDialog, ConsoleDialog, SettingsDialog, WizardDialog
 from os_builder.views.get_iso_dialog import GetIsoDialog
 from os_builder.views.main_window import MainWindow
@@ -436,16 +437,37 @@ class MainController(QObject):
 
     def _open_wizard(self) -> None:
         dialog = WizardDialog(self._window)
-        edit = self._workspace.edit_dir / "usr/share/plymouth/themes"
+        themes_dir = self._workspace.edit_dir / "usr/share/plymouth/themes"
         try:
-            themes = sorted(p.name for p in edit.iterdir() if (p / f"{p.name}.plymouth").is_file())
+            themes = sorted(p.name for p in themes_dir.iterdir() if (p / f"{p.name}.plymouth").is_file())
         except OSError:
             themes = []
-        dialog.form.set_plymouth_themes(themes)
+        dialog.form.set_context(self._workspace.iso_dir, themes)
+        saved = self._settings.value(f"installer/{self._workspace.root}", "")
+        if saved:
+            try:
+                dialog.form.installer.load(InstallerSettings.from_dict(json.loads(str(saved))))
+                dialog.form.installer.enabled_check.setChecked(True)
+            except (ValueError, TypeError):
+                pass
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
+        config = dialog.result_config()
+        if dialog.form.installer.is_enabled():
+            # The password is kept only as its hash.
+            settings = dialog.form.installer.settings()
+            self._settings.setValue(f"installer/{self._workspace.root}", json.dumps(settings.to_dict()))
+        if config.autoinstall_unattended:
+            answer = QMessageBox.warning(
+                self._window, "Fully automatic installation",
+                "The ISO will install without asking anything and ERASE the first disk of any computer it boots "
+                "on. Continue?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No,
+            )  # fmt: skip
+            if answer != QMessageBox.StandardButton.Yes:
+                return
         then = (lambda _result: self._open_build()) if dialog.build_after.isChecked() else None
-        self._customize(dialog.config(), "Wizard", then)
+        self._customize(config, "Wizard", then)
 
     def _open_build(self) -> None:
         distribution = self._window.distribution_config()

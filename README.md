@@ -15,7 +15,7 @@ It is a rewrite, in Python 3.12+ and Qt 6, of [Ubuntu Builder](https://launchpad
 | Button | What it does |
 |---|---|
 | **Select ISO** | Use a local `.iso`, or download an official image. Releases (20.04 LTS … 26.10), their support status (supported / ESM / end of life), the official flavors and the images are fetched live from ubuntu.com; downloads resume and are verified with SHA-256. |
-| **Wizard** | Packages to add or remove, desktop and login manager, GRUB menu (timeout, kernel arguments), Plymouth splash, wallpaper and GTK/icon theme, Subiquity `autoinstall.yaml`, Calamares, shell commands run inside the image; optionally build right after. |
+| **Wizard** | Seven tabs — Software, Look & feel, Login screen, Boot splash, Bootloader, Installer, Commands — see [Branding and installer](#branding-and-installer); optionally build right after. |
 | **Build** | Applies the Distribution settings, repacks the squashfs (xz, zstd, gzip, lz4), regenerates `md5sum.txt` and the installer metadata, and writes the ISO with `xorriso` — **hybrid** (legacy BIOS + UEFI) or **UEFI only** for modern PCs without CSM. |
 | **QEMU** | Boot the ISO in a virtual machine: legacy BIOS, UEFI, or UEFI with **Secure Boot** enabled (OVMF with Microsoft keys). |
 | **Export** | Show in the file manager, write to a USB stick (GNOME Disks, usb-creator, mintstick, ISO Image Writer) or burn (Brasero, K3b, Xfburn). |
@@ -45,6 +45,20 @@ through debconf and linked as `display-manager.service`. The **Desktop** button 
 desktops, the X11 window managers and the wlroots compositors (Sway, labwc, Wayfire) in its window;
 GNOME 49+ (Wayland only) and Hyprland cannot be nested — test those with QEMU.
 
+### Branding and installer
+
+| Wizard tab | What you can change |
+|---|---|
+| **Look & feel** | Default wallpaper; GTK, icon and cursor theme from a catalog of 26.04 packages (Yaru, Arc, Orchis, Numix, Breeze, Greybird; Papirus, Numix, elementary, Suru, Moka, Faba, Pop; Bibata, Breeze, DMZ) or from theme archives (`.tar.gz`, `.tar.xz`, `.zip` from gnome-look.org or GitHub). Applied to GNOME, Budgie, Unity, MATE, Cinnamon, the icon theme also to KDE Plasma, the cursor theme to every desktop. |
+| **Login screen** | Background, logo and message for GDM, LightDM (Slick and GTK greeters), SDDM (Breeze) and greetd/tuigreet; the greeters use the Look & feel themes too. |
+| **Boot splash** | Keep the splash, pick an installed Plymouth theme, or generate one from your logo and a background colour — with progress bar, disk-encryption passphrase prompt and messages. The live ISO's initrd is extended with it, so the splash shows when the ISO boots, not only after installation. |
+| **Bootloader** | ISO boot menu: timeout, kernel arguments, background image (PNG/JPEG), text and highlight colours, and a text editor for `boot/grub/grub.cfg`. Installed system: menu timeout, kernel arguments, Starfield theme or the same background (`/etc/default/grub.d`). |
+| **Installer** | A form for Subiquity's [`autoinstall.yaml`](https://canonical-subiquity.readthedocs-hosted.com/en/latest/reference/autoinstall-reference.html), read by the Ubuntu Server and Ubuntu Desktop installers: guided (every screen pre-filled), partly automatic (choose the screens still shown) or fully automatic; language, keyboard, time zone, user (password stored only as a SHA-512 hash), disk layout and encryption, SSH, updates, drivers, codecs, packages, snaps, late-commands and free YAML. Preview, load, save, and check against Subiquity's published JSON schema. Calamares can be added as an alternative installer. |
+
+Customising Subiquity this way — answers, visible screens, post-install commands — is the interface
+Canonical supports; OS Builder does not patch the installer's code, so the ISO keeps receiving the
+installer's own fixes.
+
 ### UEFI and Secure Boot
 
 - The boot records of the source image — MBR, GPT, El Torito catalog and the EFI system partition
@@ -69,7 +83,7 @@ dpkg-buildpackage -us -uc -b
 ```
 
 ```bash
-sudo apt install ../os-builder_3.1.0_all.deb
+sudo apt install ../os-builder_3.2.0_all.deb
 ```
 
 Start **OS Builder** from the application menu, or run `os-builder`. The program runs as your
@@ -95,8 +109,8 @@ PATH="$PWD/.venv/bin:$PATH" src/os-builder/os-builder
 - Host: Ubuntu 24.04 LTS or newer (or Debian 13), amd64, about 20 GB free disk space.
 - Required: `python3` (3.12+), `python3-pyqt6`, `python3-requests`, `python3-bs4`, `python3-lxml`,
   `python3-yaml`, `squashfs-tools`, `xorriso`, `pkexec`.
-- Recommended: `mtools`, `grub-pc-bin`, `grub-efi-amd64-bin`, `qemu-system-x86`, `ovmf`,
-  `xserver-xephyr`.
+- Recommended: `openssl`, `python3-jsonschema`, `mtools`, `grub-pc-bin`, `grub-efi-amd64-bin`,
+  `qemu-system-x86`, `ovmf`, `xserver-xephyr`.
 - Source images: Ubuntu 20.04 LTS to 26.10 and the official flavors (classic and layered squashfs).
 
 ## Command line
@@ -106,7 +120,7 @@ sudo os-builder-cli -w ~/debion extract ubuntu-26.04.1-desktop-amd64.iso
 ```
 
 ```bash
-echo '{"distro_name": "DebION GNU/Linux", "locale": "en_US.UTF-8", "desktop": "kde", "display_manager": "sddm"}' > debion.json
+echo '{"distro_name": "DebION GNU/Linux", "locale": "en_US.UTF-8", "desktop": "kde", "display_manager": "sddm", "splash_logo": "/path/logo.png", "splash_color": "#1a237e", "grub_background": "/path/grub.png", "icon_theme": "Papirus-Dark", "extra_packages": ["papirus-icon-theme"]}' > debion.json
 ```
 
 ```bash
@@ -151,7 +165,10 @@ Follows the layout of the original source tarball (`src/<name>/` and `debian/`):
 
 - Layered images (Ubuntu 23.04+): changes go into the one layer chosen at extraction (by default
   the installer's default source); layers above it, such as the live session layer, are unchanged.
-- Wallpaper and themes are applied through GSettings (GNOME based desktops only).
+- The wallpaper is set for GSettings based desktops (GNOME, Budgie, Unity, MATE, Cinnamon); KDE Plasma
+  and Xfce keep their own wallpaper.
+- GDM 50 shows the login background through Ubuntu's own `com.ubuntu.login-screen` settings; on a
+  non-Ubuntu GDM only the logo and message apply.
 - greetd and XDM have no automatic login in the live session; the live user logs in at the prompt.
 - Debian live images (`live/filesystem.squashfs`) are not supported yet; only Ubuntu images.
 - Only amd64 has been tested.

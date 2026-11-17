@@ -27,6 +27,7 @@ from PyQt6.QtWidgets import (
 
 from os_builder import APP_NAME, __version__
 from os_builder.core.backend import COMPRESSIONS
+from os_builder.core.errors import BuilderError
 from os_builder.core.iso import MAX_VOLUME_ID
 from os_builder.core.preflight import ToolStatus, install_command
 from os_builder.models import CustomizationConfig
@@ -43,7 +44,8 @@ class WizardDialog(QDialog):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Wizard")
-        self.resize(720, 640)
+        self.resize(820, 720)
+        self._config = CustomizationConfig()
         self.form = CustomizePage()
         self.build_after = QCheckBox("Build the ISO when done")
         buttons = QDialogButtonBox(
@@ -64,10 +66,20 @@ class WizardDialog(QDialog):
         return self.form.config()
 
     def _apply(self) -> None:
-        if self.config().is_empty():
+        try:
+            config = self.config()
+        except BuilderError as exc:  # e.g. invalid installer settings
+            QMessageBox.warning(self, "Wizard", str(exc))
+            return
+        if config.is_empty():
             QMessageBox.information(self, "Wizard", "Nothing to apply — the form is empty.")
             return
+        self._config = config
         self.accept()
+
+    def result_config(self) -> CustomizationConfig:
+        """The configuration collected when Apply was pressed."""
+        return self._config
 
 
 class BuildDialog(QDialog):

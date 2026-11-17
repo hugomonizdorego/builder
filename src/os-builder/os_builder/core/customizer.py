@@ -14,9 +14,31 @@ from pathlib import Path
 import yaml
 
 from os_builder import APP_ID
+from os_builder.core.autoinstall import AutoinstallError
+from os_builder.core.autoinstall import parse as parse_autoinstall
+from os_builder.core.branding import (
+    APPEARANCE_OVERRIDE,
+    LOGIN_OVERRIDE,
+    SPLASH_THEME,
+    TARGET_GRUB_DROPIN,
+    appearance_override,
+    apply_grub_appearance,
+    grub_appearance_block,
+    is_grub_color,
+    is_grub_color_pair,
+    login_override,
+    plymouth_script,
+    plymouth_theme_file,
+    schema_ids,
+    set_ini_value,
+    target_grub_dropin,
+)
 from os_builder.core.chroot import ChrootSession
 from os_builder.core.errors import BuilderError
+from os_builder.core.images import image_kind, parse_color, solid_png
+from os_builder.core.initrd import append_overlay, write_newc
 from os_builder.core.runner import CommandRunner
+from os_builder.core.themes import install_theme_archive, is_theme_archive
 from os_builder.models.customization import CustomizationConfig
 from os_builder.models.desktops import (
     DESKTOPS_BY_ID,
@@ -33,7 +55,6 @@ _THEME_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._+-]*$")
 _UBUNTU_WORD = re.compile(r"\b\w*[Uu]buntu\b(?:[ -](?:Server|Studio|MATE|Budgie|Cinnamon|Kylin|Unity)\b)?")
 _MENU_TITLE = re.compile(r"^(\s*(?:menuentry|submenu)\s+)(['\"])(.*?)\2", re.MULTILINE)
 _LINUX_LINE = re.compile(r"^(\s*linux(?:efi)?\s+\S+)(.*)$", re.MULTILINE)
-_IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".svg"}
 _LOCALE = re.compile(r"^[a-z]{2,3}(_[A-Z]{2})?(@[a-z]+)?(\.UTF-8)?$")
 _FREE_TEXT_FORBIDDEN = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
 
@@ -52,6 +73,15 @@ exit 0
 """
 
 
+def _check_image(path: str, what: str, kinds: set[str]) -> None:
+    if not path:
+        return
+    kind = image_kind(Path(path))
+    if kind not in kinds:
+        allowed = ", ".join(sorted(k.upper() for k in kinds))
+        raise CustomizationError(f"{what} must be an image file ({allowed}): {path}")
+
+
 def normalize_locale(locale: str) -> str:
     """``en_US`` → ``en_US.UTF-8``; raises for anything that is not a locale."""
     locale = locale.strip()
@@ -60,7 +90,6 @@ def normalize_locale(locale: str) -> str:
     if "_" in locale and not locale.endswith(".UTF-8"):
         locale += ".UTF-8"
     return locale
-OVERRIDE_FILE = f"usr/share/glib-2.0/schemas/90_{APP_ID}.gschema.override"
 
 
 class CustomizationError(BuilderError):
@@ -140,10 +169,44 @@ class Customizer:
             raise CustomizationError("The boot menu timeout must be between -1 and 600 seconds.")
         if re.search(r"[\n\r\"'`$\\]", config.grub_extra_kernel_args):
             raise CustomizationError("Kernel arguments must not contain quotes, backslashes or '$'.")
-        if config.wallpaper_path:
-            wallpaper = Path(config.wallpaper_path)
-            if not wallpaper.is_file() or wallpaper.suffix.lower() not in _IMAGE_SUFFIXES:
-                raise CustomizationError(f"Wallpaper is not an image file: {wallpaper}")
+        _check_image(config.wallpaper_path, "Wallpaper", {"png", "jpeg", "svg", "webp"})
+        _check_image(config.login_background, "Login screen background", {"png", "jpeg"})
+        _check_image(config.login_logo, "Login screen logo", {"png", "svg"})
+        _check_image(config.splash_logo, "Boot splash logo", {"png"})
+        _check_image(config.grub_background, "Boot menu background", {"png", "jpeg"})
+        if config.splash_color:
+            try:
+                parse_color(config.splash_color)
+            except ValueError as exc:
+                raise CustomizationError(str(exc)) from exc
+        if config.splash_logo and config.plymouth_theme and config.plymouth_theme != SPLASH_THEME:
+            raise CustomizationError("Choose either a Plymouth theme or a custom splash logo, not both.")
+        if config.grub_text_color and not is_grub_color(config.grub_text_color):
+            raise CustomizationError(f"Unknown GRUB colour: {config.grub_text_color!r}")
+        if config.grub_highlight_color and not is_grub_color_pair(config.grub_highlight_color):
+            raise CustomizationError("The highlight colour must look like 'black/light-gray'.")
+        if config.grub_cfg_text and "menuentry" not in config.grub_cfg_text:
+            raise CustomizationError("The boot menu text has no menuentry; the ISO would not boot.")
+        if config.target_grub_timeout is not None and not 0 <= config.target_grub_timeout <= 600:
+            raise CustomizationError("The installed system's menu timeout must be between 0 and 600 seconds.")
+        if re.search(r"[\n\r\"'`$\\]", config.target_grub_cmdline):
+            raise CustomizationError("Kernel arguments must not contain quotes, backslashes or '$'.")
+        if config.target_grub_theme not in ("", "starfield", "background"):
+            raise CustomizationError(f"Unknown boot menu theme: {config.target_grub_theme!r}")
+        if config.target_grub_theme == "background" and not config.grub_background:
+            raise CustomizationError("Choose a boot menu background image to use it on the installed system.")
+        if re.search(r"[\x00-\x1f\"'\\]", config.login_message):
+            raise CustomizationError("The login message must be one line without quotes or backslashes.")
+        if config.cursor_theme and not _THEME_NAME.match(config.cursor_theme):
+            raise CustomizationError(f"Not a valid theme name: {config.cursor_theme!r}")
+        for archive in config.theme_archives:
+            if not is_theme_archive(archive) or not Path(archive).is_file():
+                raise CustomizationError(f"Not a theme archive (.tar.gz, .tar.xz, .zip): {archive}")
+        if config.autoinstall_yaml:
+            try:
+                parse_autoinstall(config.autoinstall_yaml)
+            except AutoinstallError as exc:
+                raise CustomizationError(f"Installer settings: {exc}") from exc
         if config.autoinstall_path:
             try:
                 document = yaml.safe_load(Path(config.autoinstall_path).read_text(encoding="utf-8"))
@@ -176,11 +239,16 @@ class Customizer:
         the user's own commands last so they can adjust everything else.
         """
         self.validate(config)
+        extra = config.grub_extra_kernel_args
         if config.locale:
             # casper reads locale= at boot: the live session speaks it too.
-            locale = normalize_locale(config.locale)
-            extra = f"{config.grub_extra_kernel_args} locale={locale}".strip()
-            config = CustomizationConfig.from_dict({**config.to_dict(), "grub_extra_kernel_args": extra})
+            extra = f"{extra} locale={normalize_locale(config.locale)}"
+        if config.autoinstall_unattended:
+            extra = f"{extra} autoinstall"  # Subiquity installs without asking for confirmation
+        if config.splash_logo or config.plymouth_theme:
+            extra = f"{extra} quiet splash"  # show the splash on the live ISO
+        if extra.strip() != config.grub_extra_kernel_args:
+            config = CustomizationConfig.from_dict({**config.to_dict(), "grub_extra_kernel_args": extra.strip()})
         self._apply_boot_menu(config)
         if config.distro_name:
             self._apply_branding(config.distro_name, session.rootfs)
@@ -190,14 +258,27 @@ class Customizer:
             self._apply_welcome(config.welcome_message, session.rootfs)
         if config.remove_windows_files:
             self._remove_windows_files()
-        if config.autoinstall_path:
+        if config.autoinstall_yaml:
+            (self._ws.iso_dir / "autoinstall.yaml").write_text(config.autoinstall_yaml, encoding="utf-8")
+            self._runner.log("Installer settings written to /autoinstall.yaml on the ISO (read by Subiquity).")
+        elif config.autoinstall_path:
             shutil.copyfile(config.autoinstall_path, self._ws.iso_dir / "autoinstall.yaml")
             self._runner.log("Installed autoinstall.yaml at the root of the ISO (read by Subiquity).")
         self._apply_packages(config, session)
-        if config.wallpaper_path or config.gtk_theme or config.icon_theme:
-            self._apply_appearance(config, session)
-        if config.plymouth_theme:
+        for archive in config.theme_archives:
+            names = install_theme_archive(Path(archive), session.rootfs)
+            self._runner.log(f"Installed from {Path(archive).name}: {', '.join(names)}")
+        if config.wallpaper_path or config.gtk_theme or config.icon_theme or config.cursor_theme:
+            self._apply_look(config, session)
+        if config.login_background or config.login_logo or config.login_message:
+            self._apply_login_screen(config, session)
+        if config.splash_logo:
+            self._create_splash_theme(config, session)
+            self._apply_plymouth(SPLASH_THEME, session)
+        elif config.plymouth_theme:
             self._apply_plymouth(config.plymouth_theme, session)
+        if config.target_grub_timeout is not None or config.target_grub_cmdline or config.target_grub_theme:
+            self._apply_target_grub(config, session)
         if config.locale:
             self._apply_locale(normalize_locale(config.locale), session)
         if config.commands.strip():
@@ -210,11 +291,30 @@ class Customizer:
         return [self._ws.iso_dir / c for c in candidates if (self._ws.iso_dir / c).is_file()]
 
     def _apply_boot_menu(self, config: CustomizationConfig) -> None:
-        if config.grub_timeout is None and not config.grub_extra_kernel_args and not config.distro_name:
+        grub_cfg = self._ws.iso_dir / "boot/grub/grub.cfg"
+        if config.grub_cfg_text and grub_cfg.is_file():
+            # The user's own boot menu replaces the generated one; the other
+            # boot menu settings still apply on top of it.
+            grub_cfg.write_text(config.grub_cfg_text.replace("\r\n", "\n"), encoding="utf-8")
+            self._runner.log("boot/grub/grub.cfg replaced with the edited boot menu.")
+        background = ""
+        if config.grub_background:
+            source = Path(config.grub_background)
+            suffix = ".jpg" if image_kind(source) == "jpeg" else ".png"
+            target = self._ws.iso_dir / "boot/grub" / f"{APP_ID}-background{suffix}"
+            shutil.copyfile(source, target)
+            background = "/" + target.relative_to(self._ws.iso_dir).as_posix()
+        appearance = ""
+        if background or config.grub_text_color or config.grub_highlight_color:
+            appearance = grub_appearance_block(background, config.grub_text_color, config.grub_highlight_color)
+        if (config.grub_timeout is None and not config.grub_extra_kernel_args and not config.distro_name
+                and not appearance):
             return
         for path in self._boot_configs():
             text = original = path.read_text(encoding="utf-8")
             is_grub = path.suffix == ".cfg" and path.parent.name == "grub"
+            if is_grub and appearance and path.name == "grub.cfg":
+                text = apply_grub_appearance(text, appearance)
             if is_grub and config.grub_timeout is not None:
                 text = set_grub_timeout(text, config.grub_timeout)
             if is_grub and config.grub_extra_kernel_args:
@@ -380,42 +480,205 @@ class Customizer:
         note = "" if manager.live_autologin else " (the live session shows its login prompt: no autologin)"
         self._runner.log(f"Login manager set to {manager.name}{note}.")
 
-    def _apply_appearance(self, config: CustomizationConfig, session: ChrootSession) -> None:
-        """Default wallpaper and themes through a GSettings override.
+    def _copy_into_image(self, source: str, rootfs: Path, directory: str, stem: str) -> str:
+        """Copy a host file into the image; returns its absolute path inside."""
+        path = Path(source)
+        suffix = {"jpeg": ".jpg"}.get(image_kind(path) or "", path.suffix.lower())
+        target = rootfs / directory / f"{stem}{suffix}"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(path, target)
+        target.chmod(0o644)
+        return "/" + target.relative_to(rootfs).as_posix()
 
-        Covers GNOME based desktops (Ubuntu, Budgie, Cinnamon read the same
-        ``org.gnome.desktop`` keys for themes). KDE Plasma and Xfce keep
-        their defaults elsewhere and are not touched.
+    def _require_theme(self, rootfs: Path, name: str, kind: str) -> None:
+        """Fail with a helpful list when a theme is not installed in the image."""
+        base = rootfs / "usr/share" / ("themes" if kind == "GTK" else "icons")
+        probe = base / name / ("cursors" if kind == "cursor" else "")
+        if probe.is_dir():
+            return
+        if kind == "cursor":
+            available = sorted(p.parent.name for p in base.glob("*/cursors"))
+        elif kind == "icon":
+            available = sorted(p.parent.name for p in base.glob("*/index.theme") if not (p.parent / "cursors").is_dir())
+        else:
+            available = sorted(p.name for p in base.iterdir() if p.is_dir()) if base.is_dir() else []
+        raise CustomizationError(
+            f"The {kind} theme {name!r} is not installed in the image. Available: {', '.join(available) or 'none'}. "
+            "Install its package (Wizard → Look & feel) or a theme archive first."
+        )
+
+    def _apply_look(self, config: CustomizationConfig, session: ChrootSession) -> None:
+        """Wallpaper, GTK, icon and cursor theme as defaults for new users.
+
+        GNOME, Budgie, Unity, MATE and Cinnamon read them through GSettings;
+        KDE Plasma gets the icon theme through kdeglobals; every desktop gets
+        the cursor theme through the x-cursor-theme alternative.
         """
         rootfs = session.rootfs
-        schemas = rootfs / "usr/share/glib-2.0/schemas"
-        if not schemas.is_dir():
-            self._runner.log("WARNING: the image has no GSettings schemas; appearance settings skipped.")
-            return
-        background: list[str] = []
+        for name, kind in ((config.gtk_theme, "GTK"), (config.icon_theme, "icon"), (config.cursor_theme, "cursor")):
+            if name:
+                self._require_theme(rootfs, name, kind)
+        wallpaper = ""
         if config.wallpaper_path:
-            source = Path(config.wallpaper_path)
-            target = rootfs / "usr/share/backgrounds" / f"{APP_ID}-wallpaper{source.suffix.lower()}"
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(source, target)
-            target.chmod(0o644)
-            uri = f"file:///{target.relative_to(rootfs).as_posix()}"
-            background = [f"picture-uri='{uri}'", f"picture-uri-dark='{uri}'"]
-        interface = [f"gtk-theme='{config.gtk_theme}'"] if config.gtk_theme else []
-        interface += [f"icon-theme='{config.icon_theme}'"] if config.icon_theme else []
-        sections: list[str] = []
-        # The ":ubuntu" variants outrank Ubuntu's own session defaults.
-        for suffix in ("", ":ubuntu"):
-            if background:
-                sections.append(f"[org.gnome.desktop.background{suffix}]\n" + "\n".join(background))
-                sections.append(f"[org.gnome.desktop.screensaver{suffix}]\n{background[0]}")
-            if interface:
-                sections.append(f"[org.gnome.desktop.interface{suffix}]\n" + "\n".join(interface))
-        (rootfs / OVERRIDE_FILE).write_text("\n\n".join(sections) + "\n", encoding="utf-8")
+            wallpaper = self._copy_into_image(
+                config.wallpaper_path, rootfs, "usr/share/backgrounds", f"{APP_ID}-wallpaper"
+            )
+        schema_dir = rootfs / "usr/share/glib-2.0/schemas"
+        override = appearance_override(
+            schema_ids(schema_dir) if schema_dir.is_dir() else set(),
+            wallpaper=wallpaper, gtk=config.gtk_theme, icons=config.icon_theme, cursor=config.cursor_theme,
+        )  # fmt: skip
+        if override:
+            (rootfs / APPEARANCE_OVERRIDE).write_text(override, encoding="utf-8")
+            self._compile_schemas(session)
+        elif wallpaper or config.gtk_theme:
+            self._runner.log("No GNOME, MATE or Cinnamon settings schemas in the image; wallpaper/theme not set.")
+        if config.icon_theme and (rootfs / "usr/bin/plasmashell").exists():
+            kdeglobals = rootfs / "etc/xdg/kdeglobals"
+            text = kdeglobals.read_text(encoding="utf-8") if kdeglobals.is_file() else ""
+            kdeglobals.parent.mkdir(parents=True, exist_ok=True)
+            kdeglobals.write_text(set_ini_value(text, "Icons", "Theme", config.icon_theme), encoding="utf-8")
+        if config.cursor_theme:
+            cursor_file = f"/usr/share/icons/{config.cursor_theme}/cursor.theme"
+            if not (rootfs / cursor_file.lstrip("/")).exists():
+                (rootfs / cursor_file.lstrip("/")).write_text(
+                    f"[Icon Theme]\nName={config.cursor_theme}\nInherits={config.cursor_theme}\n", encoding="utf-8"
+                )
+            session.run(["update-alternatives", "--install", "/usr/share/icons/default/index.theme",
+                         "x-cursor-theme", cursor_file, "100"])  # fmt: skip
+            session.run(["update-alternatives", "--set", "x-cursor-theme", cursor_file])
+        self._runner.log("Look & feel defaults set.")
+
+    def _compile_schemas(self, session: ChrootSession) -> None:
         if session.has_command("glib-compile-schemas"):
             session.run(["glib-compile-schemas", "/usr/share/glib-2.0/schemas/"])
         else:
-            self._runner.log("WARNING: glib-compile-schemas not found in the image; override not compiled.")
+            self._runner.log("WARNING: glib-compile-schemas not found in the image; settings not compiled.")
+
+    def _apply_login_screen(self, config: CustomizationConfig, session: ChrootSession) -> None:
+        """Background, logo and message of GDM, Slick Greeter, GTK Greeter, SDDM and tuigreet."""
+        rootfs = session.rootfs
+        background = logo = ""
+        if config.login_background:
+            background = self._copy_into_image(config.login_background, rootfs, "usr/share/backgrounds",
+                                               f"{APP_ID}-login")  # fmt: skip
+        if config.login_logo:
+            logo = self._copy_into_image(config.login_logo, rootfs, "usr/share/pixmaps", f"{APP_ID}-login-logo")
+        done: list[str] = []
+        schema_dir = rootfs / "usr/share/glib-2.0/schemas"
+        override = login_override(
+            schema_ids(schema_dir) if schema_dir.is_dir() else set(), background=background, logo=logo,
+            message=config.login_message, gtk=config.gtk_theme, icons=config.icon_theme, cursor=config.cursor_theme,
+        )  # fmt: skip
+        if override:
+            (rootfs / LOGIN_OVERRIDE).write_text(override, encoding="utf-8")
+            self._compile_schemas(session)
+            if "login-screen]" in override:
+                done.append("GDM")
+            if "[x.dm.slick-greeter]" in override:
+                done.append("Slick Greeter")
+        gtk_greeter = rootfs / "etc/lightdm/lightdm-gtk-greeter.conf"
+        if gtk_greeter.is_file():
+            text = gtk_greeter.read_text(encoding="utf-8")
+            for key, value in (("background", background), ("default-user-image", logo),
+                               ("theme-name", config.gtk_theme), ("icon-theme-name", config.icon_theme),
+                               ("cursor-theme-name", config.cursor_theme)):  # fmt: skip
+                if value:
+                    text = set_ini_value(text, "greeter", key, value)
+            gtk_greeter.write_text(text, encoding="utf-8")
+            done.append("LightDM GTK Greeter")
+        breeze = rootfs / "usr/share/sddm/themes/breeze"
+        if breeze.is_dir() and background:
+            user_conf = breeze / "theme.conf.user"
+            text = user_conf.read_text(encoding="utf-8") if user_conf.is_file() else ""
+            user_conf.write_text(set_ini_value(text, "General", "background", background), encoding="utf-8")
+            done.append("SDDM (Breeze)")
+        if config.cursor_theme and (rootfs / "usr/bin/sddm").exists():
+            conf = rootfs / "etc/sddm.conf.d" / f"90-{APP_ID}.conf"
+            conf.parent.mkdir(parents=True, exist_ok=True)
+            text = conf.read_text(encoding="utf-8") if conf.is_file() else ""
+            conf.write_text(set_ini_value(text, "Theme", "CursorTheme", config.cursor_theme), encoding="utf-8")
+        greetd = rootfs / "etc/greetd/config.toml"
+        if greetd.is_file() and config.login_message and "tuigreet" in greetd.read_text(encoding="utf-8"):
+            text = re.sub(r" --greeting '[^']*'", "", greetd.read_text(encoding="utf-8"))
+            text = re.sub(r'(command = "tuigreet)', rf"\1 --greeting '{config.login_message}'", text)
+            greetd.write_text(text, encoding="utf-8")
+            done.append("greetd (tuigreet)")
+        if not done:
+            self._runner.log("WARNING: no supported login manager found in the image; login screen not changed.")
+        else:
+            self._runner.log("Login screen updated: " + ", ".join(done) + ".")
+
+    def _live_splash_overlay(self, session: ChrootSession) -> None:
+        """Show the chosen splash in the live session too (see core/initrd.py)."""
+        hook = session.rootfs / "usr/share/initramfs-tools/hooks/plymouth"
+        live_initrds = sorted(p for p in (self._ws.iso_dir / "casper").glob("initrd*") if p.is_file())
+        if not hook.exists() or not live_initrds:
+            self._runner.log("The live boot keeps its splash (no Plymouth initramfs hook or live initrd).")
+            return
+        staging = session.rootfs / "tmp" / f"{APP_ID}-initrd"
+        shutil.rmtree(staging, ignore_errors=True)
+        staging.mkdir(parents=True)
+        # Same merged-/usr layout as the initrd built by mkinitramfs.
+        for directory in ("usr/bin", "usr/sbin", "usr/lib", "usr/lib64", "etc", "conf/conf.d", "scripts"):
+            (staging / directory).mkdir(parents=True, exist_ok=True)
+        for link in ("bin", "sbin", "lib", "lib64"):
+            (staging / link).symlink_to(f"usr/{link}")
+        try:
+            session.run(["/bin/sh", "-c",
+                         f"DESTDIR=/tmp/{staging.name} verbose=n; export DESTDIR verbose; "
+                         ". /usr/share/initramfs-tools/hook-functions; "
+                         "/usr/share/initramfs-tools/hooks/plymouth"])  # fmt: skip
+            overlay = self._ws.boot_dir / "plymouth-overlay.cpio"
+            self._ws.boot_dir.mkdir(parents=True, exist_ok=True)
+            count = write_newc(staging, overlay)
+            for initrd in live_initrds:
+                append_overlay(initrd, overlay, self._ws.boot_dir)
+            self._runner.log(
+                f"Live boot splash added to {', '.join(p.name for p in live_initrds)} ({count} files)."
+            )
+        finally:
+            shutil.rmtree(staging, ignore_errors=True)
+
+    def _create_splash_theme(self, config: CustomizationConfig, session: ChrootSession) -> None:
+        """Generate the "os-builder" Plymouth theme (script plugin) from a logo."""
+        rootfs = session.rootfs
+        if not list(rootfs.glob("usr/lib/*/plymouth/script.so")) or not session.has_command("plymouth"):
+            session.run(["apt-get", "install", "-y", "plymouth"])
+        if not list(rootfs.glob("usr/lib/*/plymouth/label*.so")):
+            # Image.Text() (password prompt, messages) needs the label plugin.
+            session.run(["apt-get", "install", "-y", "plymouth-label"])
+        theme_dir = rootfs / "usr/share/plymouth/themes" / SPLASH_THEME
+        theme_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(config.splash_logo, theme_dir / "logo.png")
+        rgb = parse_color(config.splash_color) if config.splash_color else (0, 0, 0)
+        (theme_dir / "progress_bg.png").write_bytes(solid_png(4, 4, (255, 255, 255, 60)))
+        (theme_dir / "progress_fg.png").write_bytes(solid_png(4, 4, (255, 255, 255, 230)))
+        (theme_dir / f"{SPLASH_THEME}.plymouth").write_text(plymouth_theme_file(), encoding="utf-8")
+        (theme_dir / f"{SPLASH_THEME}.script").write_text(plymouth_script(rgb), encoding="utf-8")
+        for path in theme_dir.iterdir():
+            path.chmod(0o644)
+        self._runner.log(f"Boot splash theme '{SPLASH_THEME}' created.")
+
+    def _apply_target_grub(self, config: CustomizationConfig, session: ChrootSession) -> None:
+        """Boot menu of the installed system (read by update-grub at install time)."""
+        rootfs = session.rootfs
+        theme = background = ""
+        if config.target_grub_theme == "starfield":
+            if not (rootfs / "usr/share/grub/themes/starfield/theme.txt").exists():
+                session.run(["apt-get", "install", "-y", "grub-theme-starfield"])
+            theme = "/usr/share/grub/themes/starfield/theme.txt"
+        elif config.target_grub_theme == "background":
+            background = self._copy_into_image(config.grub_background, rootfs, "usr/share/backgrounds",
+                                               f"{APP_ID}-grub")  # fmt: skip
+        dropin = rootfs / TARGET_GRUB_DROPIN
+        dropin.parent.mkdir(parents=True, exist_ok=True)
+        dropin.write_text(
+            target_grub_dropin(timeout=config.target_grub_timeout, cmdline=config.target_grub_cmdline,
+                               background=background, theme=theme),
+            encoding="utf-8",
+        )  # fmt: skip
+        self._runner.log(f"Installed system boot menu configured (/{TARGET_GRUB_DROPIN}).")
 
     def _apply_plymouth(self, theme: str, session: ChrootSession) -> None:
         rootfs = session.rootfs
@@ -431,10 +694,9 @@ class Customizer:
         session.run(["update-alternatives", "--set", "default.plymouth", theme_file])
         initrds = sorted((rootfs / "boot").glob("initrd.img-*"))
         if not initrds:
-            self._runner.log(
-                "Plymouth theme set. This layer has no kernel/initrd, so the splash changes on the "
-                "installed system only; the live boot keeps the original splash."
-            )
+            # The kernel lives in another layer: extend the live initrd instead.
+            self._runner.log("Plymouth theme set for the installed system.")
+            self._live_splash_overlay(session)
             return
         session.run(["update-initramfs", "-u", "-k", "all"])
         # Only an initrd built where casper is installed can boot the live
@@ -445,4 +707,4 @@ class Customizer:
             shutil.copyfile(newest, live_initrd)
             self._runner.log(f"Live boot splash updated ({live_initrd.name} regenerated from {newest.name}).")
         else:
-            self._runner.log("Plymouth theme applies to the installed system; live initrd left unchanged.")
+            self._live_splash_overlay(session)

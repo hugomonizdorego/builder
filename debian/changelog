@@ -1,3 +1,27 @@
+os-builder (3.2.0) resolute; urgency=medium
+
+  * Installer: editor for Subiquity's autoinstall.yaml (also read by the
+    Ubuntu Desktop installer): guided, partly or fully automatic installs,
+    language, keyboard, time zone, user (password stored as SHA-512 hash),
+    disk layout and encryption, SSH, updates, drivers, codecs, packages,
+    snaps, late-commands, extra YAML; load/save, preview, and a check
+    against Subiquity's published JSON schema.
+  * Look & feel: GTK, icon and cursor themes from a catalog verified against
+    the 26.04 packages, or from theme archives (tar/zip, checked against
+    path traversal); applied to GNOME, Budgie, Unity, MATE, Cinnamon and,
+    for icons, KDE Plasma; cursor theme for every desktop.
+  * Login screen: background, logo and message for GDM, LightDM Slick and
+    GTK greeters, SDDM Breeze and greetd/tuigreet.
+  * Boot splash: Plymouth theme generated from a logo and a colour, with
+    progress bar, passphrase prompt and messages; the live ISO's initrd is
+    extended with it, so it also shows when booting the ISO.
+  * Bootloader: GRUB background image and colours on the ISO (works with
+    Secure Boot), a text editor for boot/grub/grub.cfg, and the installed
+    system's menu timeout, kernel arguments and theme (/etc/default/grub.d).
+  * The Wizard is split into tabs with image previews.
+
+ -- hugomonizdorego <hugomonizdorego@gmail.com>  Tue, 17 Nov 2026 20:00:00 +0700
+
 os-builder (3.1.0) resolute; urgency=medium
 
   * Renamed from Ubuntu Builder to OS Builder (package os-builder,
