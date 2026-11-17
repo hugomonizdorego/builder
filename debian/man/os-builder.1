@@ -1,0 +1,28 @@
+.TH OS-BUILDER 1 "November 2026" "os-builder 3.1.0" "User Commands"
+.SH NAME
+os-builder \- build your own Ubuntu based distribution
+.SH SYNOPSIS
+.B os-builder
+.SH DESCRIPTION
+.B os-builder
+opens the graphical remastering tool. Select an ISO (a local file or an
+official image downloaded from ubuntu.com), customize it with the Console,
+Synaptic, the nested Desktop, the Wizard and the Distribution settings, then
+build a hybrid ISO that boots on legacy BIOS and on UEFI with Secure Boot,
+or a UEFI-only ISO for modern PCs. Desktop environments, Wayland
+compositors, X11 window managers and login managers can be added from the
+Customize panel.
+.PP
+The application runs as the desktop user and asks for administrator rights
+through
+.BR pkexec (1)
+only for extracting, chroot sessions and building.
+.SH FILES
+.TP
+.I ~/os-builder-workspace
+Default workspace: extracted ISO tree, unpacked file system, downloads.
+.TP
+.I ~/.config/os-builder/os-builder.conf
+Settings.
+.SH SEE ALSO
+.BR os-builder-cli (1)

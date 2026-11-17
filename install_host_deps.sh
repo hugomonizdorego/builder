@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Install the host packages Ubuntu Builder needs (Ubuntu 22.04 or newer,
+# Install the host packages OS Builder needs (Ubuntu 22.04 or newer,
 # Debian and derivatives).
 #
 #   ./install_host_deps.sh              required + recommended packages
@@ -78,5 +78,5 @@ Host packages installed. Next, the Python side:
 
     python3 -m venv .venv
     .venv/bin/pip install -r requirements.txt
-    .venv/bin/python -m ubuntu_builder
+    PATH="$PWD/.venv/bin:$PATH" src/os-builder/os-builder
 EOF

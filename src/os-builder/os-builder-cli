@@ -1,0 +1,6 @@
+#!/bin/sh
+# OS Builder command line interface (see: os-builder-cli --help).
+DIR=/usr/share/os-builder
+[ -d "$DIR/os_builder" ] || DIR=$(dirname "$(readlink -f "$0")")
+export PYTHONPATH="$DIR${PYTHONPATH:+:$PYTHONPATH}"
+exec python3 -m os_builder.cli "$@"

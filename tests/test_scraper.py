@@ -2,8 +2,8 @@
 
 from datetime import date
 
-from ubuntu_builder.core import scraper
-from ubuntu_builder.models.release import SupportStatus
+from os_builder.core import scraper
+from os_builder.models.release import SupportStatus
 
 RELEASE_LIST = """
 <table class="release-table"><thead><tr>
@@ -117,8 +117,7 @@ def test_sha256sums():
 
 def test_catalog_falls_back_to_cache_when_offline(tmp_path):
     import requests
-
-    from ubuntu_builder.models.release import Catalog, UbuntuRelease
+    from os_builder.models.release import Catalog, UbuntuRelease
 
     class Offline(requests.Session):
         def get(self, *args, **kwargs):  # noqa: ARG002

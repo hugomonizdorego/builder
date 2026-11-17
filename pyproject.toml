@@ -3,8 +3,8 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ubuntu-builder"
-description = "Build your own Ubuntu based distribution — a modern rewrite of Ubuntu Builder"
+name = "os-builder"
+description = "OS Builder — build your own Ubuntu based operating system (rewrite of Ubuntu Builder)"
 readme = "README.md"
 license = { text = "GPL-3.0-or-later" }
 requires-python = ">=3.12"
@@ -21,21 +21,21 @@ dependencies = [
 dev = ["pytest>=8.0", "ruff>=0.5"]
 
 [project.scripts]
-ubuntu-builder-cli = "ubuntu_builder.cli:main"
+os-builder-cli = "os_builder.cli:main"
 
 [project.gui-scripts]
-ubuntu-builder = "ubuntu_builder.app:main"
+os-builder = "os_builder.app:main"
 
 [tool.setuptools.dynamic]
-version = { attr = "ubuntu_builder.__version__" }
+version = { attr = "os_builder.__version__" }
 
 [tool.setuptools.packages.find]
-where = ["src/ubuntu-builder"]
-include = ["ubuntu_builder*"]
+where = ["src/os-builder"]
+include = ["os_builder*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src/ubuntu-builder"]
+pythonpath = ["src/os-builder"]
 
 [tool.ruff]
 line-length = 120

@@ -1,4 +1,4 @@
-# Runtime dependencies of Ubuntu Builder (Python 3.12+)
+# Runtime dependencies of OS Builder (Python 3.12+)
 PyQt6>=6.6            # GUI (works on GNOME/Wayland and KDE Plasma)
 requests>=2.31        # HTTP for the release scraper and ISO downloads
 beautifulsoup4>=4.12  # HTML parsing of the Ubuntu release pages

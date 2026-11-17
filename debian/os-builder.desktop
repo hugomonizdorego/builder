@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=OS Builder
+GenericName=Distribution Builder
+Comment=A handy tool to build your own distro
+Exec=os-builder
+Icon=os-builder
+Terminal=false
+StartupNotify=true
+StartupWMClass=os-builder
+Categories=System;Development;
+Keywords=remaster;iso;distribution;live;ubuntu;

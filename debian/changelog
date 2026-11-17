@@ -1,357 +1,44 @@
-ubuntu-builder (3.0.0) resolute; urgency=medium
-
-  * Complete rewrite in Python 3.12+ and Qt 6 (PyQt6), MVC architecture.
-  * Same workflow and window as 2.x: Select ISO, Wizard, Build, QEMU,
-    Export, Remove, Settings; Console, Synaptic, Desktop, Install .deb.
-  * Releases, support status, flavors and ISO images are fetched live from
-    ubuntu.com instead of being hard coded (sources/precise … saucy).
-  * Download official images with resume and SHA-256 verification.
-  * Support for layered squashfs images (Ubuntu 23.04 and later).
-  * Hybrid ISO for legacy BIOS and UEFI with Secure Boot, built with
-    xorriso from the source image's boot records (replaces genisoimage).
-  * Long operations run in background threads with progress and cancel;
-    every mount is released on errors and cancellation.
-  * Administrator rights through pkexec / polkit instead of gksudo.
-  * Embedded chroot console; Desktop runs the image's session in Xephyr.
-  * New options: description, locale, welcome message, boot menu,
-    Plymouth, wallpaper and themes, Subiquity autoinstall, Calamares,
-    commands run inside the image.
-  * Pre-flight check of the host tools at start up.
-
- -- Ubuntu Builder developers <maintainer@example.org>  Tue, 17 Nov 2026 12:00:00 +0700
-
-ubuntu-builder (2.5.2-gb3-1) saucy; urgency=low
-
-  * New way to check internet connection.
-  * Added Finnish and Ukrainian translations.
-  * Minor bugfixes.
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Tue, 11 Feb 2014 21:02:14 +0100
-
-ubuntu-builder (2.5.1-gb3-2) saucy; urgency=low
-
-  * Bugfix: fail to execute Console script.
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Thu, 30 Jan 2014 19:47:00 +0100
-
-ubuntu-builder (2.5.1-gb3-1) saucy; urgency=low
-
-  * Bugfix: broken install of MATE desktop environment.
-  * Bugfix: scripts are not executable.
-  * Added support for Ubuntu 13.10 mini remix.
-  * New file system compression level.
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Wed, 29 Jan 2014 20:43:18 +0100
-
-ubuntu-builder (2.5.0-gb3-1) saucy; urgency=low
-
-  * New upstrem release.
-    - Added Saucy Salamander support.
-    - Bugfix: the program does not respond when attempted to execute (LP: #1181825)
-    - Bugfix: ISO missing /casper/vmlinuz.efi unable to install (LP: #1201011)
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Mon, 20 Jan 2014 14:21:27 +0100
-
-ubuntu-builder (2.4.1-gb3-1) quantal; urgency=low
-
-  * Bugfix: Synaptic can't display the settings repository menu entry (#41)
-  * Bugfix: Enable (changing name) brings issues after install (#45)
-  * Ubuntu Mini Remix 13.04 are now available.
-  * Added config script with common variables.
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Sun, 09 Jun 2013 11:44:34 +0200
-
-ubuntu-builder (2.4.0-gb3-1) quantal; urgency=low
-
-  * New upstream release.
-    - Bugfix: Boot error /casper/vmlinuz.efi file not found (LP: #1169492)
-    - Bugfix: The words in the Russian language don't fit in the interface (LP: #1112417)
-    - Bugfix: Fails behind proxy (LP: #1156502)
-    - Added Bulgarian translation.
-    - Added Raring Ringtail support.
-    - Removed Lucid Lynx & Oneiric Ocelot support.
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Mon, 06 May 2013 23:03:28 +0200
-
-ubuntu-builder (2.3.5-gb3-1) quantal; urgency=low
-
-  * Bugfix: entering settings form resets the graphic chroot resolution.
-  * Minor bugfixes.
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Thu, 07 Mar 2013 21:39:14 +0100
-
-ubuntu-builder (2.3.4-gb3-1) quantal; urgency=low
-
-  * Bugfix: Ubuntu Software Center does not start (#7).
-  * Bugfix: desktop feature does not opens MATE (only Gambas 3 version).
-  * Bugfix: MATE preset does not install xserver-xorg.
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Tue, 15 Jan 2013 13:14:29 +0100
-
-ubuntu-builder (2.3.3-gb3-1) quantal; urgency=low
-
-  * Bugfix: desktop feature does not opens MATE.
-  * Bugfix: broken symlink to resolv.conf blocks internet connection.
-  * Bugfix: failed to open packages list on GNOME and MATE.
-  * Updated Chinese, Romanian and Greek translations.
-  * Added Russian translation.
-  * Improved scripts execution.
-  * MD5 now checks only the ISO image.
-  * Improved Ubiquity slideshows detection.
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Thu, 03 Jan 2013 14:07:58 +0100
-
-ubuntu-builder (2.3.2-gb3-2) quantal; urgency=low
-
-  * Bugfix: packages list and log file open a blank page if using Gedit as text editor.
-  * Bugfix: sources.list is loaded only if using Ubuntu ISO images.
-  * Added Linux Mint 14 support.
-  * debian/control:
-    - Now depends on gambas3-gb-form-stock (only Gambas 3 version).
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Sun, 16 Dec 2012 16:45:15 +0100
-
-ubuntu-builder (2.3.1-gb3-1) quantal; urgency=low
-
-  * Bugfix: Ubuntu 12.10 is not acknowledged in ISO description.
-  * Bugfix: failed to detect Ubiquity in Ubuntu 12.10.
-  * Added E17 and MATE to presets list.
-  * Added Elementary OS Luna support.
-  * Added Lubuntu to Ubiquity list.
-  * Updated Croatian translation.
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Thu, 15 Oct 2012 14:04:11 +0100
-
-ubuntu-builder (2.3.0-gb3-1) quantal; urgency=low
-
-  * New upstream release.
-    - Bugfix: I get '/casper/vmlinuz not found' with customized kernel image (LP #1065463).
-    - Bugfix: Lack of kernel when the kernel is updated.
-    - Added Quantal Quetzal support.
-    - Removed Natty Narwhal support.
-    - Improved log generation.
-    - User manual updated.
-  * debian/control:
-    - now depends on gambas3-gb-image.
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Sat, 20 Oct 2012 19:17:04 +0200
-
-ubuntu-builder (2.2.2-1) precise; urgency=low
-
-  * Added xdm to ignore list in 'Install' script.
-  * Added Romaniam translation.
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Sat, 29 Sep 2012 12:20:26 +0200
-
-ubuntu-builder (2.2.1-1) precise; urgency=low
-
-  * Bugfix: sometimes program crashes if there is no log file.
-  * Added German translations.
-  * Updated all the translations.
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Tue, 28 Aug 2012 13:22:41 +0200
-
-ubuntu-builder (2.2.0-1) precise; urgency=low
-
-  * New upstream release.
-  * Bugfix: invalid version string when creating a USB live.
-  * Bugfix: users can now change distribution's basic informations.
-  * Added French, Portuguese (Portugal and Brasil) and Greek translations.
-  * Updated all the translations.
-  * Settings form changed with new options.
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Thu, 19 Jul 2012 21:21:57 +0200
-
-ubuntu-builder (2.1.1-1) precise; urgency=low
-
-  * Warning if important directories are not detected during extraction process.
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Wed, 06 Jun 2012 22:57:50 +0200
-
-ubuntu-builder (2.1.0-1) precise; urgency=low
-
-  * New upstream release.
-  * Added Chinese and Croatian translations.
-  * Added Linux Mint 13 support.
-  * Various bugfixes.
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Mon, 04 Jun 2012 21:57:03 +0200
-
-ubuntu-builder (2.0.2-1) oneiric; urgency=low
-
-  * New logo.
-  * Updated scripts.
-  * Improved log generation.
-  * Automatically close after cleaning workpath.
-  * Detect existing projects at wizard startup.
-  * Various bugfixes.
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Wed, 16 May 2012 21:50:37 +0200
-
-ubuntu-builder (2.0.1-1) oneiric; urgency=low
-
-  * Bugfix: the 12.04 mini remix images have wrong names.
-  * Bugfix: wrong path in Wizard.
-  * Delete workpath if extraction fails.
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Wed, 02 May 2012 21:52:14 +0200
-
-ubuntu-builder (2.0.0-1) oneiric; urgency=low
-
-  * New upstream release.
-  * Bugfix: the 'Clean workpath' button doesn't delete all the workpath.
-  * Added Precise Pangolin support. 
-  * Removed Maverick Meerkat support.
-  * It now starts program as superuser.
-  * It's possible to set four new languages as default.
-  * It's possible to read a log file.
-  * New GUI and icons.
-  * A brand new html user manual.
-  * Various changes and bugfixes.
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Sat, 28 Apr 2012 15:40:41 +0200
-
-ubuntu-builder (1.4.1-1) oneiric; urgency=low
-
-  * Bugfix: installing presets causes the program to crash.
-  * Bugfix: size of the generated ISO images is too high.
-  * Bugfix: failed to open ISO image.
-  * Bugfix: it's not possible to edit the release notes. 
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Thu, 29 Mar 2012 13:44:17 +0200
-
-ubuntu-builder (1.4.0-1) oneiric; urgency=low
-
-  * New upstream release.
-  * Redesigned GUI.
-  * Enabled wizard feature.
-  * Added QEMU virtual memory customization.
-  * Various bugfixes and changes.
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Sun, 25 Mar 2012 18:12:53 +0200
-
-ubuntu-builder (1.3.2-2) oneiric; urgency=high
-
-  * Include 'sources' dir in the installation path.
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Mon, 12 Mar 2012 19:19:42 +0100
-
-ubuntu-builder (1.3.2-1) oneiric; urgency=low
-
-  * Bugfix: the GNOME presets are not loaded on startup.
-  * Bugfix: sources.list has universe and multiverse repos disabled.
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Mon, 12 Mar 2012 17:04:59 +0100
-
-ubuntu-builder (1.3.1-1) oneiric; urgency=low
-
-  * New resolutions for graphical chroot.
-  * Setting the default language will remove all the others.
-  * Bugfix: building process fails on Linux Mint ISO images.
-  * Added Galician translation.
-  * Added Spanish translation.
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Tue, 06 Mar 2012 22:00:34 +0100
-
-ubuntu-builder (1.3.0-1) oneiric; urgency=low
-
-  * New upstream release.
-  * Exporting and importing projects now work correctly.
-  * Enabled Live CD creation after building.
-  * Presets install only essential packages.
-  * Minor bugfixes.
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Sun, 26 Feb 2012 17:52:17 +0100
-
-ubuntu-builder (1.2.1-1) oneiric; urgency=low
-
-  * Bugfix: final ISO doesn't start after adding GUI from presets to minimal ISO.
-  * Various bugfixes.
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Wed, 15 Feb 2012 22:03:43 +0100
-
-ubuntu-builder (1.2.0-1) oneiric; urgency=low
-
-  * New upstream release.
-  * Bugfix: ISO building fails for 'vmlinuz' file missing.
-  * Bugfix: graphical chroot doesn't always work.
-  * Added ISO burning support for Xfburn.
-  * Added progress bar in the 'Get Ubuntu' form.
-  * New logo.
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Mon, 09 Jan 2012 14:25:39 +0100
-
-ubuntu-builder (1.1.2-1) oneiric; urgency=low
-
-  * Modified 'x-terminal-emulator' to work on KDE systems.
-  * Minor bugfixes.
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Mon, 02 Jan 2012 15:10:38 +0100
-
-ubuntu-builder (1.1.1-1) oneiric; urgency=low
-
-  * Bugfix: language and burning software are not stored in the settings form.
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Thu, 29 Dec 2011 23:09:13 +0100
-
-ubuntu-builder (1.1.0-1) oneiric; urgency=low
-
-  * New upstream release.
-  * Added user manual.
-  * Bugfix: DEB packages installation doesn't work.
-  * Enabled ISO burning after building.
-  * Added language choosing field.
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Wed, 28 Dec 2011 21:12:12 +0100
-
-ubuntu-builder (1.0.7-1) oneiric; urgency=low
-
-  * Bugfix: extracting iso images fails to execute.
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Mon, 19 Dec 2011 21:14:52 +0100
-
-ubuntu-builder (1.0.6-1) oneiric; urgency=low
-
-  * Added error catching.
-  * Fixed minor bugs.
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Tue, 13 Dec 2011 13:50:46 +0100
-
-ubuntu-builder (1.0.5-1) oneiric; urgency=low
-
-  * Fixed various bug on the scripts.
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Fri, 28 Oct 2011 13:15:46 +0200
-
-ubuntu-builder (1.0.4-1) oneiric; urgency=low
-
-  * Bugfix: Ubiquity does not save changes.
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Wed, 26 Oct 2011 15:06:20 +0200
-
-ubuntu-builder (1.0.3-1) oneiric; urgency=low
-
-  * Bugfix: once building iso fails, it's not possible to create more images.
-  * Various scripts bugfixes.
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Sat, 22 Oct 2011 22:25:25 +0200
-
-ubuntu-builder (1.0.2-1) oneiric; urgency=high
-
-  * Bugfix: the final ISO files have wrong permissions.
-  * Enabled 'List packages' button.
-  * Improved 'Settings' form.
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Thu, 20 Oct 2011 23:11:33 +0200
-
-ubuntu-builder (1.0.1-1) oneiric; urgency=low
-
-  * Bugfix: 'Edit sources.list' button does not open the default system editor.
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Tue, 18 Oct 2011 14:16:28 +0200
-
-ubuntu-builder (1.0.0-1) oneiric; urgency=low
-
-  * Initial release.
-
- -- Francesco Muriana <f.muriana@hotmail.it>  Sun, 16 Oct 2011 19:05:08 +0200
+os-builder (3.1.0) resolute; urgency=medium
+
+  * Renamed from Ubuntu Builder to OS Builder (package os-builder,
+    commands os-builder and os-builder-cli, polkit action
+    org.os-builder.helper). Replaces and conflicts with ubuntu-builder.
+  * Desktop catalog checked against Ubuntu 26.04: GNOME 50, GNOME
+    Flashback, KDE Plasma 6.6, Xfce 4.20, LXQt, MATE, Budgie 10.10,
+    Cinnamon 6.4, Unity, Edubuntu, Ubuntu Studio, Ubuntu Kylin, LXDE,
+    Enlightenment.
+  * Wayland compositors: Hyprland 0.53, Sway 1.11, labwc 0.9, Wayfire 0.10,
+    each with a working toolkit (foot, fuzzel, waybar, mako, portals).
+  * X11 window managers: i3, Openbox, awesome, bspwm, Qtile, xmonad,
+    herbstluftwm, IceWM, Fluxbox.
+  * Login managers: GDM 50, SDDM 0.21, LightDM with Slick or GTK greeter,
+    greetd with tuigreet, LXDM, XDM; set as display-manager.service and
+    preseeded through debconf.
+  * Desktop button: Sway, labwc and Wayfire run nested in the Xephyr window;
+    a clear message for GNOME 49+ and Hyprland, which cannot be nested.
+  * UEFI: boot report (legacy BIOS, UEFI, Secure Boot with an Authenticode
+    check of the shim), new UEFI-only build mode for modern PCs without
+    CSM, new "boot-info" command, QEMU test with Secure Boot enabled.
+  * Distribution names may contain "/" (e.g. "DebION GNU/Linux"); new
+    workspaces default to the en_US.UTF-8 locale.
+
+ -- hugomonizdorego <hugomonizdorego@gmail.com>  Tue, 17 Nov 2026 16:00:00 +0700
+
+os-builder (3.0.0) resolute; urgency=medium
+
+  * Complete rewrite of Ubuntu Builder 2.5.2 in Python 3.12+ and Qt 6.
+  * Same workflow and window as Ubuntu Builder 2.x: Select ISO, Wizard,
+    Build, QEMU, Export, Remove, Settings; Console, Synaptic, Desktop,
+    Install .deb.
+  * Releases, support status, flavors and ISO images fetched live from
+    ubuntu.com; downloads with resume and SHA-256 verification.
+  * Layered squashfs images (Ubuntu 23.04 and later).
+  * Hybrid BIOS/UEFI ISO with Secure Boot, built with xorriso from the
+    source image's boot records (replaces genisoimage).
+  * Background threads with progress and cancel; every mount is released
+    on errors and cancellation.
+  * Administrator rights through pkexec and polkit instead of gksudo.
+  * The history of Ubuntu Builder 0.1 - 2.5.2 is kept in
+    legacy/2.5.2/debian/changelog of the source tree.
+
+ -- hugomonizdorego <hugomonizdorego@gmail.com>  Tue, 17 Nov 2026 12:00:00 +0700

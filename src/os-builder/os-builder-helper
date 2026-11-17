@@ -1,0 +1,17 @@
+#!/usr/bin/python3 -I
+"""Privileged helper of OS Builder, started by the GUI through pkexec.
+
+Installed as /usr/libexec/os-builder/os-builder-helper and named by
+the polkit action org.os-builder.helper. Python runs in isolated mode,
+so nothing from the calling user's environment (PYTHONPATH, user site
+packages, current directory) can inject code into this root process.
+"""
+
+import sys
+
+sys.path.insert(0, "/usr/share/os-builder")
+
+from os_builder.cli import main  # noqa: E402
+
+if __name__ == "__main__":
+    sys.exit(main())
