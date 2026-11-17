@@ -1,0 +1,9 @@
+#!/bin/bash
+
+if [ -e /usr/bin/gksudo ]; then
+	gksudo /usr/bin/ubuntu-builder.gambas
+elif [ -e /usr/bin/kdesudo ]; then
+	kdesudo /usr/bin/ubuntu-builder.gambas
+fi
+
+exit 0

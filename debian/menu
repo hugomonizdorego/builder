@@ -1,0 +1,4 @@
+?package(ubuntu-builder):needs="X11" section="Applications/System/Administration"\
+title="Ubuntu Builder"\
+command="/usr/bin/ubuntu-builder"\
+icon="/usr/share/pixmaps/ubuntu-builder.png"

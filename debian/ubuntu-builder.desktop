@@ -1,0 +1,12 @@
+
+[Desktop Entry]
+Version=1.0
+Encoding=UTF-8
+Name=Ubuntu Builder
+Comment=A handy tool to build your own distro.
+Exec=/usr/bin/ubuntu-builder
+Icon=/usr/share/pixmaps/ubuntu-builder.png
+Terminal=false
+Type=Application
+StartupNotify=true
+Categories=System;
